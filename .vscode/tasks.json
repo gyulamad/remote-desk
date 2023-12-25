@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-tests-for-debug",
+            "type": "shell",
+            "command": "${workspaceFolder}/build-tests-dbg.sh",
+            "args": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
