@@ -5,6 +5,7 @@
 #include <X11/Xutil.h>
 
 #include "UDPClient.hpp"
+#include "ChangedRectangle.hpp"
 
 using namespace std;
 
@@ -32,6 +33,13 @@ public:
 
         XEvent event;
         while (true) {
+            if (client.isDataAvailable()) {
+                UDPMessage serverMessage = client.receive();
+                ChangedRectangle receivedRect;
+                std::memcpy(&receivedRect, serverMessage.data.c_str(), sizeof(ChangedRectangle));
+
+            }
+
             XNextEvent(display, &event);
 
             switch (event.type) {
@@ -78,6 +86,7 @@ public:
 private:
     Display* display;
     Window window;
+    GC gc;  // Graphics context
     Atom wmDeleteMessage;
 
     void init() {
@@ -107,7 +116,15 @@ private:
         // Set window title (optional)
         XStoreName(display, window, "Your Window Title");
 
+        // Create the GC and store it
+        gc = DefaultGC(display, screen);
+        
         // Flush pending events
+        XFlush(display);
+    }
+
+    void showImage(int top, int left, XImage* ximage) {
+        XPutImage(display, window, gc, ximage, 0, 0, left, top, ximage->width, ximage->height);
         XFlush(display);
     }
 

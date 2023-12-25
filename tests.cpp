@@ -9,15 +9,15 @@ int main() {
 
     // --------------- ScreenshotManager -------------------
 
-    ScreenshotManager screenshotManager;
+    ScreenshotManager screenshotManager(100, 100);
 
     // Example: Capture and display the result of the first capture
-    XImage* firstCapture = screenshotManager.captureChanges();
+    vector<ChangedRectangle> firstCapture = screenshotManager.captureChanges();
 
     // ... (process the 'firstCapture' image as needed)
 
     // Example: Capture changes and process the resulting image
-    XImage* changes = screenshotManager.captureChanges();
+    vector<ChangedRectangle> changes = screenshotManager.captureChanges();
 
     // ... (process the 'changes' image as needed)
 

@@ -2,10 +2,14 @@
 #include <sstream>
 #include <vector>
 #include <map>
+#include <chrono>
 
 #include "UDPServer.hpp"
 #include "EventTrigger.hpp"
 #include "ScreenshotManager.hpp"
+
+using namespace std;
+using namespace chrono;
 
 class DesktopServer {
 protected:
@@ -45,32 +49,45 @@ protected:
         // TODO
     }
 
-    ScreenshotManager screenshotManager;
+    UDPMessage clientMessage;
+    bool clientJoined = false;
+    ScreenshotManager screenshotManager = ScreenshotManager(100, 100);
     EventTrigger eventTrigger;
     UDPServer server = UDPServer(9876);
+    long long captureNextAt = 0;
+    long long captureFreq = 1000;
 public:
 
     void runEventLoop() {
         while (true) {
             if (server.isDataAvailable()) {
-                UDPMessage message = server.receive();
-                if (message.length) {
-                    std::cout << "Received: " << message.data << std::endl;
+                clientMessage = server.receive();
+                clientJoined = true;
+                if (clientMessage.length) {
+                    std::cout << "Received: " << clientMessage.data << std::endl;
                     
                     vector<int> eventArgs;
-                    stringstream ss(message.data.substr(2, message.length));
+                    stringstream ss(clientMessage.data.substr(2, clientMessage.length));
                     string token;
                     while (getline(ss, token, ','))
                         eventArgs.push_back(stoi(token));
 
-                    eventCallbacks.at(message.data.substr(0, 2))(this, eventArgs);
+                    eventCallbacks.at(clientMessage.data.substr(0, 2))(this, eventArgs);
                     
                 }
             }
 
-            screenshotManager.captureChanges();
-
-            usleep(50000);
+            long long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+            if (now >= captureNextAt) {
+                cout << "Capture screen" << endl;
+                const vector<ChangedRectangle>& changes = screenshotManager.captureChanges();
+                char buffer[sizeof(ChangedRectangle)];
+                for (const ChangedRectangle& change: changes) {
+                    memcpy(buffer, &change, sizeof(ChangedRectangle));
+                    server.send(buffer, (sockaddr*)&clientMessage.senderAddress);
+                }
+                captureNextAt = now + captureFreq;
+            }
         }
     }
 };

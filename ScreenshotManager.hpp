@@ -1,92 +1,127 @@
-#pragma once
 
-#include <iostream>
-#include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <vector>
+#include <memory>
+
+#include "ChangedRectangle.hpp"
+
+using namespace std;
 
 class ScreenshotManager {
 public:
-    ScreenshotManager() : img1(nullptr), img2(nullptr) {
-        display = XOpenDisplay(NULL);
+    // Constructor
+    ScreenshotManager(int smallImageWidth, int smallImageHeight) : 
+        smallImageWidth(smallImageWidth), 
+        smallImageHeight(smallImageHeight) {
+        
+        // Initialize Xlib
+        display = XOpenDisplay(nullptr);
         if (!display) {
-            std::cerr << "Error opening display" << std::endl;
+            throw runtime_error("Unable to open X display.");
+        }
+
+        // Calculate the number of small images vertically and horizontally
+        screenWidth = DisplayWidth(display, DefaultScreen(display));
+        screenHeight = DisplayHeight(display, DefaultScreen(display));
+        numImagesX = screenWidth / smallImageWidth;
+        numImagesY = screenHeight / smallImageHeight;
+
+        // Initialize the previousImages 2D array with nullptrs
+        for (int y = 0; y < numImagesY; ++y) {
+            vector<XImage*> row;
+            for (int x = 0; x < numImagesX; ++x) {
+                row.push_back(nullptr);
+            }
+            previousImages.push_back(row);
         }
     }
 
+    // Destructor
     ~ScreenshotManager() {
-        if (img1) XDestroyImage(img1);
-        if (img2) XDestroyImage(img2);
-        if (display) XCloseDisplay(display);
+        // Free up all allocated resources, including XImages
+        // ...
+
+        // Close the display
+        XCloseDisplay(display);
     }
 
-    XImage* captureChanges() {
-        // If this is the first capture, or if img1 does not exist, capture the initial image and return
-        if (!img1) {
-            img1 = capture();
-            return img1;
-        }
+    std::vector<ChangedRectangle> changedRectangles;
 
-        // Capture a new screenshot
-        img2 = capture();
+    // Function to capture changes in the screen
+    const std::vector<ChangedRectangle>& captureChanges() {
 
-        // Compare and find the bounding rectangle of differences
-        int x, y, width, height;
-        findBoundingRect(img1, img2, x, y, width, height);
+        // Iterate through each small area
+        for (int y = 0; y < numImagesY; ++y) {
+            for (int x = 0; x < numImagesX; ++x) {
+                // Calculate the coordinates and size of the small area
+                int top = y * smallImageHeight;
+                int left = x * smallImageWidth;
 
-        // Destroy the outdated image
-        XDestroyImage(img1);
+                // Call a function to capture the image of the small area
+                XImage* ximage = captureImage(top, left, smallImageWidth, smallImageHeight);
 
-        // Store the current image for the next comparison
-        img1 = img2;
-
-        // Return an XImage representing the changes
-        return cutImage(img2, x, y, width, height);
-    }
-
-private:
-    Display* display;
-    XImage* img1;  // Previous screenshot
-    XImage* img2;  // Current screenshot
-
-    XImage* capture() {
-        Window root = DefaultRootWindow(display);
-        return XGetImage(display, root, 0, 0, WidthOfScreen(DefaultScreenOfDisplay(display)),
-                         HeightOfScreen(DefaultScreenOfDisplay(display)), AllPlanes, ZPixmap);
-    }
-
-    void findBoundingRect(XImage* img1, XImage* img2, int& x, int& y, int& width, int& height) {
-        // Iterate over pixels and find the bounding rectangle of differences
-        x = y = width = height = 0;
-
-        for (int yy = 0; yy < img1->height; ++yy) {
-            for (int xx = 0; xx < img1->width; ++xx) {
-                unsigned long pixel1 = XGetPixel(img1, xx, yy);
-                unsigned long pixel2 = XGetPixel(img2, xx, yy);
-
-                if (pixel1 != pixel2) {
-                    if (x == 0 && y == 0) {
-                        // First differing pixel, set initial coordinates
-                        x = xx;
-                        y = yy;
-                        width = height = 1;
-                    } else {
-                        // Expand bounding rectangle
-                        x = std::min(x, xx);
-                        y = std::min(y, yy);
-                        width = std::max(width, xx - x + 1);
-                        height = std::max(height, yy - y + 1);
-                    }
+                // Check if the captured image is different from the previous one
+                if (isAreaChanged(x, y, ximage)) {
+                    // Store the changed rectangle in the vector
+                    changedRectangles.push_back({top, left, smallImageWidth, smallImageHeight, ximage});
+                } else {
+                    // Free up the memory if the area has not changed
+                    //XDestroyImage(ximage);
                 }
             }
         }
+
+        firstCapture = false;
+
+        return changedRectangles;
     }
 
-    XImage* cutImage(XImage* img, int x, int y, int width, int height) {
-        // Create a new XImage representing the changes
-        XImage* cutImg = XCreateImage(display, CopyFromParent, img->depth, ZPixmap, 0,
-                                      reinterpret_cast<char*>(img->data) + y * img->bytes_per_line + x * img->bits_per_pixel / 8,
-                                      width, height, img->bitmap_pad, img->bytes_per_line);
+private:
+    
+    // Function to capture an image of a small area
+    XImage* captureImage(int top, int left, int width, int height) {
+        XImage* ximage = XGetImage(display, RootWindow(display, DefaultScreen(display)),
+                                   left, top, width, height, AllPlanes, ZPixmap);
 
-        return cutImg;
+        if (!ximage) {
+            throw runtime_error("Failed to capture image of the specified area.");
+        }
+
+        return ximage;
     }
+
+    // Function to check if an area has changed
+    bool isAreaChanged(int x, int y, XImage* currentImage) {
+        if (firstCapture || !previousImages[y][x]) {
+            // First iteration, store the current image for future comparisons
+            previousImages[y][x] = currentImage;
+            return true;
+        }
+
+        // Compare the current image with the previous one
+        if (memcmp(currentImage->data, previousImages[y][x]->data, currentImage->bytes_per_line * currentImage->height) != 0) {
+            // Images are different, area has changed
+            XDestroyImage(previousImages[y][x]);
+            previousImages[y][x] = currentImage;
+            return true;
+        }
+
+        // Images are the same, area has not changed
+        XDestroyImage(currentImage);
+        return false;
+    }
+
+    // Member variables
+    Display* display;
+    int screenWidth;
+    int screenHeight;
+    int numImagesX;
+    int numImagesY;
+    int smallImageWidth;
+    int smallImageHeight;
+
+    bool firstCapture = true;
+
+    // 2D array to store previous images for comparison
+    std::vector<std::vector<XImage*>> previousImages{};
 };

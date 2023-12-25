@@ -29,7 +29,7 @@ public:
     }
 
     UDPMessage receive() {
-        char receivedData[1024];
+        char receivedData[12000];
         socklen_t clientAddrLen = sizeof(clientAddr);
 
         ssize_t bytesReceived = recvfrom(sockfd, receivedData, sizeof(receivedData), 0, (struct sockaddr*)&clientAddr, &clientAddrLen);
