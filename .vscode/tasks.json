@@ -10,6 +10,26 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "label": "build-server-for-debug",
+            "type": "shell",
+            "command": "${workspaceFolder}/build-server-dbg.sh",
+            "args": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build-client-for-debug",
+            "type": "shell",
+            "command": "${workspaceFolder}/build-client-dbg.sh",
+            "args": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }

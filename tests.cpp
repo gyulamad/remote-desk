@@ -1,8 +1,8 @@
-#include "UDPClient.hpp"
-#include "UDPServer.hpp"
-#include "EventTrigger.hpp"
-#include "ScreenshotManager.hpp"
-#include "WindowClient.hpp"
+#include "src/UDPClient.hpp"
+#include "src/UDPServer.hpp"
+#include "src/EventTrigger.hpp"
+#include "src/ScreenshotManager.hpp"
+#include "src/DesktopClient.hpp"
 
 
 int main() {
@@ -57,10 +57,12 @@ int main() {
     // Server sends a response to the client
     server.send("Hello, Client!", (sockaddr*)&receivedMessage.senderAddress);
 
-    // --------------- WindowClient -------------------
+    receivedMessage = client.receive();
 
-    WindowClient windowClient;
-    windowClient.runEventLoop();
+    // --------------- DesktopClient -------------------
+
+    DesktopClient desktopClient;
+    desktopClient.runEventLoop();
 
     return 0;
 }

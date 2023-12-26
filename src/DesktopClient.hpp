@@ -1,6 +1,9 @@
 #pragma once
 
 #include <iostream>
+#include <sstream>
+#include <vector>
+#include <map>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
@@ -9,11 +12,38 @@
 
 using namespace std;
 
-class WindowClient {
+class DesktopClient {
 protected:
+
+    typedef void (*EventCallback)(DesktopClient*, const ChangedRectangle&);
+
+    const map<string, EventCallback> eventCallbacks = {
+        { "cr", triggerChangedRectangle },
+    };
+
+    static void triggerChangedRectangle(DesktopClient* that, const ChangedRectangle& changedRect) {
+        // show updated screen area on the client window
+        cout << "triggerChangedRectangle" << endl;
+        that->showChangedRectangle(changedRect);
+    }
+
+    void showChangedRectangle(const ChangedRectangle& changedRect) {
+        // TODO: receive the server screen size and adjust to the window size with linear interpolation
+        cout << "put image" << endl;
+        if (!XPutImage(display, window, gc, changedRect.ximage, 0, 0, 
+            changedRect.left, changedRect.top, 
+            changedRect.ximage->width, changedRect.ximage->height)
+        ) {
+            char b[10000];
+            cout << XGetErrorText(display, XGetErrorDatabaseText(display, "X request", "X Error", "X Resource", nullptr, 0), b, 0);
+            std::cout << " - Error putting image to window" << std::endl;
+        }
+        cout << "image out" << endl;
+    }
+
     UDPClient client = UDPClient("127.0.0.1", 9876);
 public:
-    WindowClient(): 
+    DesktopClient(): 
         display(nullptr), 
         window(0)
     {
@@ -21,7 +51,7 @@ public:
         createWindow();
     }
 
-    ~WindowClient() {
+    ~DesktopClient() {
         cleanup();
     }
 
@@ -31,15 +61,50 @@ public:
             return;
         }
 
-        XEvent event;
+        client.send("jn");
+
         while (true) {
-            if (client.isDataAvailable()) {
-                UDPMessage serverMessage = client.receive();
-                ChangedRectangle receivedRect;
-                std::memcpy(&receivedRect, serverMessage.data.c_str(), sizeof(ChangedRectangle));
+            // if (client.isDataAvailable()) {
+                UDPMessage receivedMessage = client.receive(); 
+                if (receivedMessage.length > 2) {
+                    EventCallback eventCallback = eventCallbacks.at(receivedMessage.data.substr(0, 2));
 
-            }
+                    if (eventCallback == triggerChangedRectangle) {
+                        size_t colonPos = receivedMessage.data.find(":");
+                        string sizePart;
+                        string dataPart;
+                        if (colonPos != string::npos) {
+                            cout << "OK colonPos != string::npos" << endl;
+                            // Extract size and data from the received string
+                            sizePart = receivedMessage.data.substr(2, colonPos - 2); // Adjusted bounds
+                            dataPart = receivedMessage.data.substr(colonPos + 1);
+                            
+                            // Continue processing...
+                            cout << "OK Continue processing..." << endl;
+                        } else {
+                            // Handle case where colon is not found in the string
+                            cerr << "Colon not found in received message: " << receivedMessage.data << endl;
+                        }
 
+                        // Parse position and size information
+                        stringstream ss(sizePart);
+                        ChangedRectangle receivedRect;
+                        int width, height;
+                        char comma;
+                        ss >> receivedRect.left >> comma >> receivedRect.top >> comma 
+                            >> width >> comma >> height;    
+                        cout << "create image.." << endl;                
+                        receivedRect.ximage = XCreateImage(XOpenDisplay(nullptr), CopyFromParent, 32, ZPixmap, 0, const_cast<char*>(dataPart.c_str()), width, height, 32, width * 4);
+                        triggerChangedRectangle(this, receivedRect);
+                        //cout << "destroy image starts" << endl;
+                        // XDestroyImage(receivedRect.ximage);
+                        //cout << "image destroyed" << endl;
+                    }
+                }
+            // }
+
+            if (!XPending(display)) continue;
+            XEvent event;
             XNextEvent(display, &event);
 
             switch (event.type) {

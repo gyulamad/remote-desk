@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cstring>
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 #include "UDPMessage.hpp"
@@ -20,6 +21,10 @@ public:
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_addr.s_addr = inet_addr(serverIp);
         serverAddr.sin_port = htons(serverPort);
+
+        // Set socket to non-blocking mode
+        int flags = fcntl(sockfd, F_GETFL, 0);
+        fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
     }
 
     UDPMessage receive() {
@@ -27,7 +32,8 @@ public:
         socklen_t serverAddrLen = sizeof(serverAddr);
 
         ssize_t bytesReceived = recvfrom(sockfd, receivedData, sizeof(receivedData), 0, (struct sockaddr*)&serverAddr, &serverAddrLen);
-        receivedData[bytesReceived] = 0;
+        if (bytesReceived < 0) receivedData[0] = 0;
+        else receivedData[bytesReceived] = 0;
         
         return { serverAddr, bytesReceived, receivedData };
     }
@@ -41,10 +47,26 @@ public:
         timeout.tv_sec = 0;  // Set the timeout to 0 for non-blocking check
         timeout.tv_usec = 0;
 
-        int result = select(sockfd + 1, &readSet, NULL, NULL, &timeout);
+        // Use recv with MSG_PEEK to check for data without removing it from the buffer
+        char peekBuffer;
+        ssize_t result = recv(sockfd, &peekBuffer, 1, MSG_PEEK);
 
-        return (result > 0 && FD_ISSET(sockfd, &readSet));
+        return (result > 0);
     }
+
+    // bool isDataAvailable() {
+    //     fd_set readSet;
+    //     FD_ZERO(&readSet);
+    //     FD_SET(sockfd, &readSet);
+
+    //     struct timeval timeout;
+    //     timeout.tv_sec = 0;  // Set the timeout to 0 for non-blocking check
+    //     timeout.tv_usec = 0;
+
+    //     int result = select(sockfd + 1, &readSet, NULL, NULL, &timeout);
+
+    //     return (result > 0 && FD_ISSET(sockfd, &readSet));
+    // }
 
     void send(const char* data) {
         sendto(sockfd, data, strlen(data), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));

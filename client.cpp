@@ -1,8 +1,8 @@
-#include "WindowClient.hpp"
+#include "src/DesktopClient.hpp"
 
 int main() {
-    WindowClient windowClient;
-    windowClient.runEventLoop();
+    DesktopClient desktopClient;
+    desktopClient.runEventLoop();
 
     return 0;
 }

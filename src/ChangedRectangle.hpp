@@ -4,6 +4,6 @@
 
 // Define a struct for the changed rectangles
 struct ChangedRectangle {
-    int top, left, width, height;
+    int top, left;
     XImage* ximage;  // Use XImage for storing screen data
 };

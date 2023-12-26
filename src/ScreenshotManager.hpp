@@ -49,6 +49,7 @@ public:
 
     // Function to capture changes in the screen
     const std::vector<ChangedRectangle>& captureChanges() {
+        changedRectangles.clear();
 
         // Iterate through each small area
         for (int y = 0; y < numImagesY; ++y) {
@@ -63,10 +64,7 @@ public:
                 // Check if the captured image is different from the previous one
                 if (isAreaChanged(x, y, ximage)) {
                     // Store the changed rectangle in the vector
-                    changedRectangles.push_back({top, left, smallImageWidth, smallImageHeight, ximage});
-                } else {
-                    // Free up the memory if the area has not changed
-                    //XDestroyImage(ximage);
+                    changedRectangles.push_back({top, left, ximage});
                 }
             }
         }
