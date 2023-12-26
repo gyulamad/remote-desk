@@ -62,7 +62,7 @@ protected:
     EventTrigger eventTrigger;
     UDPServer server = UDPServer(9876);
     long long captureNextAt = 0;
-    long long captureFreq = 1000;
+    long long captureFreq = 5000;
 public:
 
     void runEventLoop() {
@@ -94,11 +94,12 @@ public:
                 
                 int i=0;
                 for (const ChangedRectangle& change: changes) { i++;
-                    stringstream ss;
-                    ss << "cr" << change.left << "," << change.top << "," 
-                        << change.ximage->width << "," << change.ximage->height << ":";
-                    ss.write(change.ximage->data, change.ximage->height * change.ximage->bytes_per_line);
-                    string outs = ss.str();
+                    // stringstream ss;
+                    // ss << "cr" << change.left << "," << change.top << "," 
+                    //     << change.ximage->width << "," << change.ximage->height << ":";
+                    // ss.write(change.ximage->data, change.ximage->height * change.ximage->bytes_per_line);
+                    // string outs = ss.str();
+                    string outs = change.toString();
                     cout << "Sending image part (" << changes.size() << "/" << i << "): [" << outs.substr(0, 80) << "...]" << endl; 
                     server.send(outs.c_str(), outs.length() + 1, (sockaddr*)&clientMessage.senderAddress);
                 }

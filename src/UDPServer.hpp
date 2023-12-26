@@ -52,9 +52,10 @@ public:
         return (result > 0 && FD_ISSET(sockfd, &readSet));
     }
 
-    // void send(const char* message, const sockaddr* recipientAddress) {
-    //     sendto(sockfd, message, strlen(message), 0, recipientAddress, sizeof(recipientAddress));
-    // }
+    void send(const char* message, const sockaddr* recipientAddress) {
+        send(message, strlen(message), recipientAddress);
+    }
+
     void send(const char* message, size_t size, const sockaddr* recipientAddress) {
         sendto(sockfd, message, size, 0, recipientAddress, sizeof(*recipientAddress));
     }

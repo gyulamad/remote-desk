@@ -57,7 +57,11 @@ int main() {
     // Server sends a response to the client
     server.send("Hello, Client!", (sockaddr*)&receivedMessage.senderAddress);
 
+    UDPMessage receivedMessage2 = client.receive();
+    std::cout << "Server received from server: " << receivedMessage2.data << std::endl;
+
     receivedMessage = client.receive();
+    cout << receivedMessage.length << endl;
 
     // --------------- DesktopClient -------------------
 

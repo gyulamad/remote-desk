@@ -64,7 +64,11 @@ public:
                 // Check if the captured image is different from the previous one
                 if (isAreaChanged(x, y, ximage)) {
                     // Store the changed rectangle in the vector
-                    changedRectangles.push_back({top, left, ximage});
+                    ChangedRectangle change;
+                    change.fromXImage(*ximage);
+                    change.top = top;
+                    change.left = left;
+                    changedRectangles.push_back(change);
                 }
             }
         }
