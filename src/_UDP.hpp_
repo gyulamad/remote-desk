@@ -1,0 +1,119 @@
+#include "asio.hpp"
+
+using namespace std;
+
+class UDP {
+private:
+    asio::io_context ioContext;
+    asio::ip::udp::socket socket;
+    asio::ip::udp::endpoint serverEndpoint; // client-only
+
+public:
+    // Constructor for server (throws on fail) (server-only)
+    UDP(unsigned short port) : socket(ioContext, asio::ip::udp::endpoint(asio::ip::udp::v4(), port)) {}
+
+    // Constructor for client that connects to a server, use address format format "ip:port" (throws on fail) (client-only)
+    UDP(const string& serverAddress) : socket(ioContext) {
+        size_t pos = serverAddress.find_last_of(':');
+
+        if (pos == string::npos || pos == 0 || pos == serverAddress.size() - 1) {
+            cerr << "Invalid server address format: " << serverAddress << endl;
+            throw runtime_error("Failed to resolve the endpoint for the client");
+        }
+
+        string ip = serverAddress.substr(0, pos);
+        string portStr = serverAddress.substr(pos + 1);
+
+        try {
+            unsigned short port = static_cast<unsigned short>(stoi(portStr));
+
+            asio::ip::udp::endpoint endpoint(asio::ip::make_address(ip), port);
+            serverEndpoint = endpoint;
+
+            // Open the socket
+            socket.open(endpoint.protocol());
+
+            cout << "Resolved endpoint: " << endpoint.address().to_string() << ":" << endpoint.port() << endl;
+        } catch (const std::exception& e) {
+            cerr << "Exception during resolving endpoint: " << e.what() << endl;
+            throw runtime_error("Failed to resolve the endpoint for the client");
+        }
+    }
+
+    UDP(const string& serverAddress, unsigned short port): UDP("udp://" + serverAddress + ":" + to_string(port))
+    {}
+
+    // Check if data is incoming and available to read (non-blocking)
+    bool isDataAvailable() {
+        return socket.available() > 0;
+    }
+
+
+    // Sends a zero-term string, returns size of sent data or throws error (client only)
+    size_t send(const string& data) {
+        return send(data.c_str(), data.size() + 1);
+    }
+
+    // Sends binary data, returns size of sent data or throws error (client only)
+    size_t send(const void* data, size_t size) {
+        if (!socket.is_open()) {
+            cerr << "Error: Socket is not open." << endl;
+            throw runtime_error("Failed to send data");
+        }
+
+        return socket.send_to(asio::buffer(data, size), serverEndpoint);
+    }
+
+
+    // Sends a zero-term string, returns size of sent data or throws error (server only: use clientAddress in format "ip:port")
+    size_t send(const string& data, const string& clientAddress) {
+        return send(data.c_str(), data.size() + 1, clientAddress);
+    }
+
+    // Sends binary data, returns size of sent data or throws error (server only: use clientAddress in format "ip:port")
+    size_t send(const void* data, size_t size, const string& clientAddress) {
+        if (!socket.is_open()) {
+            cerr << "Error: Socket is not open." << endl;
+            throw runtime_error("Failed to send data");
+        }
+
+        // Parse the client address and port
+        size_t pos = clientAddress.find_last_of(':');
+
+        if (pos == string::npos || pos == 0 || pos == clientAddress.size() - 1) {
+            cerr << "Invalid client address format: " << clientAddress << endl;
+            throw runtime_error("Failed to send data");
+        }
+
+        string ip = clientAddress.substr(0, pos);
+        string portStr = clientAddress.substr(pos + 1);
+
+        try {
+            unsigned short port = static_cast<unsigned short>(stoi(portStr));
+            asio::ip::udp::endpoint endpoint(asio::ip::make_address(ip), port);
+
+            return socket.send_to(asio::buffer(data, size), endpoint);
+        } catch (const std::exception& e) {
+            cerr << "Exception during parsing client address: " << e.what() << endl;
+            throw runtime_error("Failed to send data");
+        }
+    }
+
+    // Receives zero-term string or binary data, returns received data size or throws error (non-blocking, returns -1 if no data)
+    size_t receive(string& receivedData, string& senderAddress) {
+        asio::ip::udp::endpoint senderEndpoint;
+        
+        // Set a reasonable initial buffer size
+        constexpr size_t bufferSize = 1024;
+        
+        receivedData.resize(bufferSize);  // Ensure the buffer is large enough
+
+        size_t dataSize = socket.receive_from(asio::buffer(&receivedData[0], bufferSize), senderEndpoint);
+        
+        // Resize the string to the actual received data size
+        receivedData.resize(dataSize);
+
+        senderAddress = senderEndpoint.address().to_string() + ":" + to_string(senderEndpoint.port());
+        return dataSize;
+    }
+};

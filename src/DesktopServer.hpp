@@ -6,7 +6,7 @@
 #include <map>
 #include <chrono>
 
-#include "UDPServer.hpp"
+#include "Communicator.hpp"
 #include "EventTrigger.hpp"
 #include "ScreenshotManager.hpp"
 
@@ -56,34 +56,46 @@ protected:
         // TODO
     }
 
-    UDPMessage clientMessage;
+    vector<string> clientAddresses;
     bool clientJoined = false;
-    ScreenshotManager screenshotManager = ScreenshotManager(100, 100);
+    ScreenshotManager screenshotManager = ScreenshotManager(20, 20);
     EventTrigger eventTrigger;
-    UDPServer server = UDPServer(9876);
+    Communicator& server;
     long long captureNextAt = 0;
     long long captureFreq = 5000;
 public:
 
+    DesktopServer(Communicator& server): server(server) {
+        const string port = "9876";
+        cout << "server listening on port: " << port << endl;
+        server.listen(port);
+    }
+
+    ~DesktopServer() {}
+
     void runEventLoop() {
         while (true) {
-            if (server.isDataAvailable()) {
-                clientMessage = server.receive();
+            // if (server.isDataAvailable()) {
+                // const size_t commBuffSizeMax = 60000;
+                string receivedData; //(commBuffSizeMax, '\0');
+                string senderAddress;
+                ssize_t receivedLength = server.recv(receivedData, senderAddress);
+                clientAddresses.push_back(senderAddress);
                 clientJoined = true;
                 cout << "Client joined" << endl;
-                if (clientMessage.length) {
-                    std::cout << "Received: " << clientMessage.data << std::endl;
+                if (receivedLength > 3) {
+                    std::cout << "Received: " << receivedData << std::endl;
                     
                     vector<int> eventArgs;
-                    stringstream ss(clientMessage.data.substr(2, clientMessage.length));
+                    stringstream ss(receivedData.substr(2, receivedLength));
                     string token;
                     while (getline(ss, token, ','))
                         eventArgs.push_back(stoi(token));
 
-                    eventCallbacks.at(clientMessage.data.substr(0, 2))(this, eventArgs);
+                    eventCallbacks.at(receivedData.substr(0, 2))(this, eventArgs);
                     
                 }
-            }
+            // }
 
             if (!clientJoined) continue;
 
@@ -100,8 +112,10 @@ public:
                     // ss.write(change.ximage->data, change.ximage->height * change.ximage->bytes_per_line);
                     // string outs = ss.str();
                     string outs = change.toString();
-                    cout << "Sending image part (" << changes.size() << "/" << i << "): [" << outs.substr(0, 80) << "...]" << endl; 
-                    server.send(outs.c_str(), outs.length() + 1, (sockaddr*)&clientMessage.senderAddress);
+                    cout << "Sending image part (" << changes.size() << "/" << i << "): (" << outs.size() << "): [" << outs.substr(0, 80) << "...]" << endl; 
+                    for (const string& clientAddress: clientAddresses) 
+                        server.send(outs, clientAddress);
+                    usleep(300000);
                 }
                 captureNextAt = now + captureFreq;
             }

@@ -1,7 +1,9 @@
 
-#include <X11/Xutil.h>
 #include <vector>
 #include <memory>
+#include <cstring>
+
+#include <X11/Xutil.h>
 
 #include "ChangedRectangle.hpp"
 

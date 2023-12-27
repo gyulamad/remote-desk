@@ -4,10 +4,13 @@
 #include <sstream>
 #include <vector>
 #include <map>
+
+#include <unistd.h>
+
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-#include "UDPClient.hpp"
+#include "Communicator.hpp"
 #include "ChangedRectangle.hpp"
 
 using namespace std;
@@ -27,26 +30,91 @@ protected:
         that->showChangedRectangle(changedRect);
     }
 
-    void showChangedRectangle(const ChangedRectangle& changedRect) {
-        // TODO: receive the server screen size and adjust to the window size with linear interpolation
+    bool showChangedRectangle(const ChangedRectangle& changedRect) {
         cout << "put image" << endl;
-        XImage ximage; 
-        changedRect.toXImage(ximage);
-        XPutImage(display, window, gc, &ximage, 0, 0, 
-            changedRect.left, changedRect.top, 
-            ximage.width, ximage.height
-        );
+
+
+        // Check if the specified region is within the bounds of the window
+        XWindowAttributes windowAttrs;
+        XGetWindowAttributes(display, window, &windowAttrs);
+
+        if (changedRect.left < 0 || changedRect.top < 0 ||
+            changedRect.left + changedRect.width + windowAttrs.border_width * 2 + 10 >= windowAttrs.width ||
+            changedRect.top + changedRect.height + windowAttrs.border_width * 2 + 10 >= windowAttrs.height) {
+            cout << "Specified region is outside the bounds of the window" << endl;
+            return false;
+        }
+
+        // Display the ChangedRectangle pixels on the window
+        displayChangedRectangle(changedRect);
+
+        // // Set up image parameters
+        // const int depth = 24;  // Set the color depth to 24 bits
+        // const int format = ZPixmap;
+
+        // // Create the XImage
+        // XImage* ximage = XGetImage(display, window, changedRect.left, changedRect.top,
+        //                         changedRect.width, changedRect.height, AllPlanes, format);
+
+        // if (!ximage) {
+        //     throw runtime_error("Failed to create XImage");
+        // }
+
+        // cout << "image get OK" << endl;
+
+        // changedRect.toXImage(*ximage);
+
+        // cout << "put image" << endl;
+
+        // XPutImage(display, window, gc, ximage, 0, 0, 
+        //     changedRect.left, changedRect.top, 
+        //     ximage->width, ximage->height
+        // );
+
+        // cout << "destroy image" << endl; 
+        // XDestroyImage(ximage);
+
+         
+
         cout << "image out" << endl;
+        return true;
     }
 
-    UDPClient client = UDPClient("127.0.0.1", 9876);
+    // Function to display the pixels of a ChangedRectangle on the window
+    void displayChangedRectangle(const ChangedRectangle& rect) {
+        for (int y = rect.top; y < rect.top + rect.height; ++y) {
+            for (int x = rect.left; x < rect.left + rect.width; ++x) {
+                int pixelIndex = (y - rect.top) * rect.width + (x - rect.left);
+                if (rect.pixels.size() <= pixelIndex) break;
+                const ChangedRectangle::RGB& pixelColor = rect.pixels[pixelIndex];
+
+                // Assuming putPixel is a global function
+                putPixel(x, y, pixelColor.r, pixelColor.g, pixelColor.b);
+            }
+        }
+    }
+
+    void putPixel(int x, int y, uint8_t r, uint8_t g, uint8_t b) {
+        XSetForeground(display, gc, (r << 16) | (g << 8) | b);
+        XDrawPoint(display, window, gc, x, y);
+        XFlush(display);
+    }
+
+    Communicator& client;
 public:
-    DesktopClient(): 
+    DesktopClient(Communicator& client): 
+        client(client),
         display(nullptr), 
         window(0)
     {
         init();
         createWindow();
+
+        const string serverAddress = "192.168.1.166:9876";
+
+        cout << "connecting to: [" << serverAddress << "]..." << endl;
+        client.connect(serverAddress);
+        cout << "client connected to: " << serverAddress << endl;
     }
 
     ~DesktopClient() {
@@ -64,14 +132,18 @@ public:
         while (true) {
             usleep(100000);
             // if (client.isDataAvailable()) {
-                UDPMessage receivedMessage = client.receive(); 
-                cout << receivedMessage.length << endl;
-                if (receivedMessage.length > 0) {
+                // UDPMessage receivedMessage;
+                // const size_t commBuffSizeMax = 60000;
+                string receivedData; //(commBuffSizeMax, '\0');
+                string senderAddress;
+                int receivedLength = client.recv(receivedData, senderAddress);
+                cout << "recv:" << receivedLength << ", from: " << senderAddress << endl;
+                if (receivedLength > 0) {
                     // EventCallback eventCallback = eventCallbacks.at(receivedMessage.data.substr(0, 2));
 
                     // if (eventCallback == triggerChangedRectangle) {
                         ChangedRectangle receivedRect;
-                        receivedRect.fromString(receivedMessage.data);
+                        receivedRect.fromString(receivedData);
                         triggerChangedRectangle(this, receivedRect);
                     // }
                 }
