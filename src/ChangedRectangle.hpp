@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <cstring>
 #include <vector>
 #include <X11/Xlib.h>
 
@@ -20,7 +21,77 @@ public:
 
     int width, height, left, top;
     vector<RGB> pixels;
-    int incorrupted = 0;
+    // int incorrupted = 0;
+
+
+    // Serialize the ChangedRectangle into a buffer
+    vector<char> serialize() const {
+        vector<char> buffer;
+        buffer.resize(sizeof(int) * 4 + pixels.size() * sizeof(RGB));
+        char* ptr = buffer.data();
+
+        // Copy integer members to the buffer
+        memcpy(ptr, &width, sizeof(int));
+        ptr += sizeof(int);
+
+        memcpy(ptr, &height, sizeof(int));
+        ptr += sizeof(int);
+
+        memcpy(ptr, &left, sizeof(int));
+        ptr += sizeof(int);
+
+        memcpy(ptr, &top, sizeof(int));
+        ptr += sizeof(int);
+
+        // Copy pixel data to the buffer
+        memcpy(ptr, pixels.data(), pixels.size() * sizeof(RGB));
+
+        return buffer;
+    }
+    
+    // Deserialize a buffer into a ChangedRectangle object
+    static ChangedRectangle deserialize(const std::vector<char>& buffer) {
+        ChangedRectangle rect;
+
+        // Validate the buffer size
+        if (buffer.size() < sizeof(int) * 4) {
+            throw std::runtime_error("Invalid buffer size for deserialization");
+        }
+
+        const char* ptr = buffer.data();
+
+        // Copy integer members from the buffer
+        memcpy(&rect.width, ptr, sizeof(int));
+        ptr += sizeof(int);
+
+        memcpy(&rect.height, ptr, sizeof(int));
+        ptr += sizeof(int);
+
+        memcpy(&rect.left, ptr, sizeof(int));
+        ptr += sizeof(int);
+
+        memcpy(&rect.top, ptr, sizeof(int));
+        ptr += sizeof(int);
+
+        // Calculate the expected size of the pixel vector
+        size_t expectedSize = rect.width * rect.height * sizeof(ChangedRectangle::RGB);
+
+        // Validate the buffer size for pixel data
+        if (buffer.size() < sizeof(int) * 4 + expectedSize) {
+            throw std::runtime_error("Invalid buffer size for pixel data deserialization");
+        }
+
+        // Resize the pixel vector
+        rect.pixels.resize(rect.width * rect.height);
+
+        // Copy pixel data from the buffer
+        memcpy(rect.pixels.data(), ptr, expectedSize);
+
+        // Validate the actual size of the pixel vector
+        rect.validatePixelsSize();
+
+        return rect;
+    }
 
     string toString() const {
         validatePixelsSize();
@@ -38,7 +109,7 @@ public:
     void fromString(const string& serialized) {
         istringstream ss(serialized);
         char comma1, comma2, comma3;
-        incorrupted = false;
+        // incorrupted = false;
         ss >> left >> comma1 >> top >> comma2 >> width >> comma3 >> height;
         if (comma1 != ',' || comma2 != ',' || comma3 != ',') {
             throw runtime_error("Incorrupted image meta");

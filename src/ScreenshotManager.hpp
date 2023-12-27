@@ -67,10 +67,14 @@ public:
                 if (isAreaChanged(x, y, ximage)) {
                     // Store the changed rectangle in the vector
                     ChangedRectangle change;
-                    change.fromXImage(*ximage);
-                    change.top = top;
-                    change.left = left;
-                    changedRectangles.push_back(change);
+                    try {
+                        change.fromXImage(*ximage);
+                        change.top = top;
+                        change.left = left;
+                        changedRectangles.push_back(change);
+                    } catch (exception &e) {
+                        cout << "Image capture error: " << e.what() << endl;
+                    }
                 }
             }
         }

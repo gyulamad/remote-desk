@@ -1,0 +1,87 @@
+#pragma once
+
+#include <asio.hpp>
+
+#include "Communicator.hpp"
+
+class AsioServer : public Server {
+protected:
+    asio::io_context ioContext;
+
+public:
+    using Server::Server;
+
+    void listen(unsigned short port) override {
+        asio::ip::tcp::acceptor acceptor(ioContext, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port));
+
+        acceptor.async_accept([this, port](const asio::error_code& ec, asio::ip::tcp::socket socket) {
+            if (!ec) {
+                // Extract client address information and pass it to the onConnect handler
+                asio::ip::tcp::endpoint remoteEndpoint = socket.remote_endpoint();
+                
+                // Create an Address object to pass to onConnect
+                Address clientAddress;
+                clientAddress.port = remoteEndpoint.port();
+                std::copy(remoteEndpoint.address().to_v4().to_bytes().begin(),
+                        remoteEndpoint.address().to_v4().to_bytes().end(),
+                        clientAddress.ip4);
+
+                onConnect(this, clientAddress);
+            } else {
+                // Handle the error
+                Error error{ "Error accepting connection", ec.value() };
+                onError(this, error);
+            }
+
+            // Continue listening for more connections
+            listen(port);
+        });
+
+        cout << "Listening on port: " << port << endl;
+        ioContext.run();
+    }
+};
+
+class AsioClient : public Client {
+protected:
+    asio::io_context ioContext;
+    asio::ip::tcp::socket socket{ ioContext };
+
+    vector<Address> serverAddresses;
+
+public:
+    using Client::Client;
+
+    void connect(const Address& address) override {
+        asio::ip::tcp::resolver resolver(ioContext);
+        asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(address.getIp4String(), to_string(address.port));
+
+        asio::async_connect(socket, endpoints, [this, address](const asio::error_code& ec, asio::ip::tcp::endpoint endpoint) {
+            if (!ec) {
+                serverAddresses.push_back(address);
+                onConnect(this, address);
+            } else {
+                // Handle the error
+                Error error{ "Error connecting to server", ec.value() };
+                onError(this, error);
+            }
+        });
+
+        ioContext.run();
+    }
+
+    virtual void send(const Message& message, const Address* address = nullptr) override {
+        if (address) {
+            asio::write(socket, asio::buffer(message.data, message.length));
+            std::cout << "Sent message to " << address->toString() << ": " << message.toString() << " (in " << message.length << " bytes)" << std::endl;
+        } else {
+            if (serverAddresses.size() == 1) {
+                send(message, &serverAddresses.at(0));
+            } else {
+                // Handle the case where no specific address is provided
+                std::cerr << "Error: No destination address provided for sending message." << std::endl;
+            }
+        }
+    }
+    
+};

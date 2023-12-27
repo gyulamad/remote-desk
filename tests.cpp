@@ -1,13 +1,44 @@
 // #include "src/UDPClient.hpp"
 // #include "src/UDPServer.hpp"
-#include "src/AsioTCP.hpp"
+// #include "src/AsioTCP.hpp"
 #include "src/EventTrigger.hpp"
 #include "src/ScreenshotManager.hpp"
 #include "src/DesktopClient.hpp"
+#include "src/AsioCommunicator.hpp"
 
+
+class EchoServer: public AsioServer {
+public:
+    static void onMessage(Communicator* comm, const Address& address, const Message& message) {
+        Communicator::Message echo("Echo: " + message.toString());
+        comm->send(echo);
+    }
+
+    EchoServer(): 
+        AsioServer(
+            defaultConnectHandler, 
+            onMessage
+        )
+    {}
+};
+
+class TestClient: public AsioClient {
+public:
+
+};
 
 int main() {
     try {
+
+        // ---------------- Communicator -----------------
+
+        EchoServer server;
+        server.listen(1234);
+
+        TestClient client;
+        client.connect("127.0.0.1", 1234);
+        Communicator::Message message("Hello Server!");
+        client.send(message, nullptr);
 
         // --------------- ScreenshotManager -------------------
 
@@ -67,9 +98,9 @@ int main() {
 
         // --------------- DesktopClient -------------------
 
-        AsioTCP comm;
-        DesktopClient desktopClient(comm);
-        desktopClient.runEventLoop();
+        // AsioTCP comm;
+        // DesktopClient desktopClient(comm);
+        // desktopClient.runEventLoop();
     } catch (exception &e) {
         cout << "Exception: " << e.what() << endl;
         return 1;

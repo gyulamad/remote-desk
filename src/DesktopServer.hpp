@@ -105,17 +105,18 @@ public:
                 const vector<ChangedRectangle>& changes = screenshotManager.captureChanges();
                 
                 int i=0;
-                for (const ChangedRectangle& change: changes) { i++;
-                    // stringstream ss;
-                    // ss << "cr" << change.left << "," << change.top << "," 
-                    //     << change.ximage->width << "," << change.ximage->height << ":";
-                    // ss.write(change.ximage->data, change.ximage->height * change.ximage->bytes_per_line);
-                    // string outs = ss.str();
-                    string outs = change.toString();
-                    cout << "Sending image part (" << changes.size() << "/" << i << "): (" << outs.size() << "): [" << outs.substr(0, 80) << "...]" << endl; 
-                    for (const string& clientAddress: clientAddresses) 
-                        server.send(outs, clientAddress);
-                    usleep(300000);
+                for (const ChangedRectangle& change: changes) {
+                    i++;
+                    try {
+                        string outs = change.toString();
+                        cout << "Sending image part (" << changes.size() << "/" << i << "): (" << outs.size() << "): [" << outs.substr(0, 80) << "...]" << endl; 
+                        for (const string& clientAddress: clientAddresses) 
+                            server.send(outs, clientAddress);
+                        cout << "Sent." << endl;
+                        usleep(1000);
+                    } catch (exception &e) {
+                        cout << "Image sending error: " << e.what() << endl;
+                    }
                 }
                 captureNextAt = now + captureFreq;
             }

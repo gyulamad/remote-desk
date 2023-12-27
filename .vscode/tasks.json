@@ -30,6 +30,36 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "label": "build-stream-for-debug",
+            "type": "shell",
+            "command": "${workspaceFolder}/build-stream-dbg.sh",
+            "args": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build-test-server-for-debug",
+            "type": "shell",
+            "command": "${workspaceFolder}/build-test-server-dbg.sh",
+            "args": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build-test-client-for-debug",
+            "type": "shell",
+            "command": "${workspaceFolder}/build-test-client-dbg.sh",
+            "args": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }
