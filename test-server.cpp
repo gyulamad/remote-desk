@@ -21,14 +21,7 @@ public:
 
     void listen(uint16_t port) {
         // Create a socket
-        serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-        if (serverSocket == -1) throw runtime_error("Error creating socket");
-
-        // Set up server address
-        sockaddr_in serverAddress{};
-        serverAddress.sin_family = AF_INET;
-        serverAddress.sin_addr.s_addr = INADDR_ANY; // Use any available network interface
-        serverAddress.sin_port = htons(port); // Replace with your desired port
+        serverSocket = prepare(port);
 
         // Bind the socket
         if (bind(serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) == -1) {
