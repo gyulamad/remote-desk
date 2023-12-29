@@ -169,7 +169,7 @@ public:
         size_t size;
         if (recv(socket, (char*)&size, sizeof(size), flags) != sizeof(size)) disconnect(socket);
         else {
-            T buff[size] = {0};
+            T buff[size];
             size_t fullsize = sizeof(T) * size;
             if (recv(socket, (char*)buff, fullsize, flags) == fullsize) {
                 vector<T> data(buff, buff + size);

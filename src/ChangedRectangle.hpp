@@ -18,16 +18,33 @@ public:
     struct RGB { 
         uint8_t r, g, b; 
     };
+    struct RGB565 {
+        uint16_t color = 0;
+
+        RGB565() {}
+        
+        RGB565(uint8_t r, uint8_t g, uint8_t b) {
+            color = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+        }
+
+        RGB toRGB() const {
+            RGB rgb;
+            rgb.r = ((color >> 11) & 0x1F) << 3;
+            rgb.g = ((color >> 5) & 0x3F) << 2;
+            rgb.b = (color & 0x1F) << 3;
+            return rgb;
+        }
+    };
 
     int width, height, left, top;
-    vector<RGB> pixels;
+    vector<RGB565> pixels;
     // int incorrupted = 0;
 
     bool send(TCPSocket& tcp, int sock) const {
         vector<int> pos = { width, height, left, top };
         return 
             tcp.send_vector<int>(sock, pos) &&
-            tcp.send_vector<RGB>(sock, pixels);
+            tcp.send_vector<RGB565>(sock, pixels);
     }
 
     bool recv(TCPSocket& tcp, int sock) {
@@ -37,114 +54,44 @@ public:
         height = pos.at(1);
         left = pos.at(2);
         top = pos.at(3);
-        pixels = tcp.recv_vector<RGB>(sock);
+        pixels = tcp.recv_vector<RGB565>(sock);
         return pixels.size() == width * height;
     }
 
+    // string toString() const {
+    //     validatePixelsSize();
 
-    // // Serialize the ChangedRectangle into a buffer
-    // vector<char> serialize() const {
-    //     vector<char> buffer;
-    //     buffer.resize(sizeof(int) * 4 + pixels.size() * sizeof(RGB));
-    //     char* ptr = buffer.data();
+    //     stringstream ss;
+    //     ss << left << "," << top << "," << width << "," << height;
 
-    //     // Copy integer members to the buffer
-    //     memcpy(ptr, &width, sizeof(int));
-    //     ptr += sizeof(int);
-
-    //     memcpy(ptr, &height, sizeof(int));
-    //     ptr += sizeof(int);
-
-    //     memcpy(ptr, &left, sizeof(int));
-    //     ptr += sizeof(int);
-
-    //     memcpy(ptr, &top, sizeof(int));
-    //     ptr += sizeof(int);
-
-    //     // Copy pixel data to the buffer
-    //     memcpy(ptr, pixels.data(), pixels.size() * sizeof(RGB));
-
-    //     return buffer;
-    // }
-    
-    // // Deserialize a buffer into a ChangedRectangle object
-    // static ChangedRectangle deserialize(const std::vector<char>& buffer) {
-    //     ChangedRectangle rect;
-
-    //     // Validate the buffer size
-    //     if (buffer.size() < sizeof(int) * 4) {
-    //         throw std::runtime_error("Invalid buffer size for deserialization");
+    //     for (const RGB& pixel : pixels) {
+    //         ss << "," << (int)pixel.r << "," << (int)pixel.g << "," << (int)pixel.b;
     //     }
 
-    //     const char* ptr = buffer.data();
-
-    //     // Copy integer members from the buffer
-    //     memcpy(&rect.width, ptr, sizeof(int));
-    //     ptr += sizeof(int);
-
-    //     memcpy(&rect.height, ptr, sizeof(int));
-    //     ptr += sizeof(int);
-
-    //     memcpy(&rect.left, ptr, sizeof(int));
-    //     ptr += sizeof(int);
-
-    //     memcpy(&rect.top, ptr, sizeof(int));
-    //     ptr += sizeof(int);
-
-    //     // Calculate the expected size of the pixel vector
-    //     size_t expectedSize = rect.width * rect.height * sizeof(ChangedRectangle::RGB);
-
-    //     // Validate the buffer size for pixel data
-    //     if (buffer.size() < sizeof(int) * 4 + expectedSize) {
-    //         throw std::runtime_error("Invalid buffer size for pixel data deserialization");
-    //     }
-
-    //     // Resize the pixel vector
-    //     rect.pixels.resize(rect.width * rect.height);
-
-    //     // Copy pixel data from the buffer
-    //     memcpy(rect.pixels.data(), ptr, expectedSize);
-
-    //     // Validate the actual size of the pixel vector
-    //     rect.validatePixelsSize();
-
-    //     return rect;
+    //     return ss.str();
     // }
 
-    string toString() const {
-        validatePixelsSize();
+    // void fromString(const string& serialized) {
+    //     istringstream ss(serialized);
+    //     char comma1, comma2, comma3;
+    //     // incorrupted = false;
+    //     ss >> left >> comma1 >> top >> comma2 >> width >> comma3 >> height;
+    //     if (comma1 != ',' || comma2 != ',' || comma3 != ',') {
+    //         throw runtime_error("Incorrupted image meta");
+    //     }
 
-        stringstream ss;
-        ss << left << "," << top << "," << width << "," << height;
+    //     pixels.clear();
 
-        for (const RGB& pixel : pixels) {
-            ss << "," << (int)pixel.r << "," << (int)pixel.g << "," << (int)pixel.b;
-        }
+    //     int r, g, b;
+    //     while (ss >> comma1 >> r >> comma2 >> g >> comma3 >> b) {
+    //         if (comma1 != ',' || comma2 != ',' || comma3 != ',') {
+    //             throw runtime_error("Incorrupted image pixel");
+    //         }
+    //         pixels.push_back({static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b)});
+    //     }
 
-        return ss.str();
-    }
-
-    void fromString(const string& serialized) {
-        istringstream ss(serialized);
-        char comma1, comma2, comma3;
-        // incorrupted = false;
-        ss >> left >> comma1 >> top >> comma2 >> width >> comma3 >> height;
-        if (comma1 != ',' || comma2 != ',' || comma3 != ',') {
-            throw runtime_error("Incorrupted image meta");
-        }
-
-        pixels.clear();
-
-        int r, g, b;
-        while (ss >> comma1 >> r >> comma2 >> g >> comma3 >> b) {
-            if (comma1 != ',' || comma2 != ',' || comma3 != ',') {
-                throw runtime_error("Incorrupted image pixel");
-            }
-            pixels.push_back({static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b)});
-        }
-
-        validatePixelsSize();
-    }
+    //     validatePixelsSize();
+    // }
 
     void fromXImage(const XImage& ximage) {
         if (ximage.depth != 24) {
@@ -165,7 +112,9 @@ public:
                 color.r = (pixel >> 16) & 0xFF;
                 color.g = (pixel >> 8) & 0xFF;
                 color.b = pixel & 0xFF;
-                pixels.push_back(color);
+                // Convert to RGB565 and store in the vector
+                RGB565 color565(color.r, color.g, color.b);
+                pixels.push_back(color565);
             }
         }
 

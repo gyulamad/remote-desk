@@ -124,11 +124,12 @@ protected:
             for (short x = rect.left; x < rect.left + rect.width; ++x) {
                 int pixelIndex = (y - rect.top) * rect.width + (x - rect.left);
                 if (rect.pixels.size() <= pixelIndex) break;
-                const ChangedRectangle::RGB& pixelColor = rect.pixels[pixelIndex];
-                XPoint point = {x, y};
+                const ChangedRectangle::RGB565& pixelColor = rect.pixels[pixelIndex];
+                // XPoint point = {x, y};
                 // points.push_back(point);
                 // colors.push_back((pixelColor.r << 16) | (pixelColor.g << 8) | pixelColor.b);
-                putPixel(x, y, pixelColor.r, pixelColor.g, pixelColor.b);
+                ChangedRectangle::RGB color = pixelColor.toRGB();
+                putPixel(x, y, color.r, color.g, color.b);
             }
         }
         // if (!points.empty()) {
