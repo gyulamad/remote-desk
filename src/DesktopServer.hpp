@@ -58,11 +58,11 @@ protected:
 
     // vector<string> clientAddresses;
     // bool clientJoined = false;
-    ScreenshotManager screenshotManager = ScreenshotManager(100, 100);
+    ScreenshotManager screenshotManager = ScreenshotManager(200, 150);
     EventTrigger eventTrigger;
     TCPServer& server;
     long long captureNextAt = 0;
-    long long captureFreq = 100;
+    long long captureFreq = 10;
 public:
 
     DesktopServer(TCPServer& server): server(server) {}

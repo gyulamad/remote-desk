@@ -124,7 +124,7 @@ protected:
             for (short x = rect.left; x < rect.left + rect.width; ++x) {
                 int pixelIndex = (y - rect.top) * rect.width + (x - rect.left);
                 if (rect.pixels.size() <= pixelIndex) break;
-                const ChangedRectangle::RGB565& pixelColor = rect.pixels[pixelIndex];
+                const ChangedRectangle::ReducedRGB& pixelColor = rect.pixels[pixelIndex];
                 // XPoint point = {x, y};
                 // points.push_back(point);
                 // colors.push_back((pixelColor.r << 16) | (pixelColor.g << 8) | pixelColor.b);
