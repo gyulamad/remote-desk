@@ -1,9 +1,11 @@
-#include "src/AsioTCP.hpp"
 #include "src/DesktopServer.hpp"
 
 int main() {
     try {
-        AsioTCP server;
+        const uint16_t port = 9876;
+        TCPServer server;
+        server.listen(port);
+        cout << "server listening on port: " << port << endl;
         DesktopServer desktopServer(server);
         desktopServer.runEventLoop();
     } catch (exception &e) {

@@ -13,24 +13,6 @@
 
 using namespace std;
 
-
-template<typename T>
-class TCPTransfer {
-protected:
-    int senderSocket;
-    vector<T> message;
-public:
-    int getSenderSocket() const {
-        return senderSocket;
-    }
-    const vector<T>& getMessage() const {
-        return message;
-    }
-    void push(const T& input) {
-        message.push_back(input);
-    }
-};
-
 class TCPSocket {
 protected:
     bool broadcast_enabled = false;
@@ -67,53 +49,59 @@ public:
         close();
     }
 
-    vector<int> sockets() {
+    vector<int> sockets(bool all = false) {
         vector<int> socks;
         size_t size = pollfds.size();
         for (size_t i = 1; i < size; i++) 
-            if (pollfds[i].revents & POLLIN)
+            if (all || pollfds[i].revents & POLLIN)
                 socks.push_back(pollfds[i].fd);
         return socks;
     }
 
     int poll(int timeout = 100) {
         int result = ::poll(pollfds.data(), pollfds.size(), timeout);
-        if (result < 0) close(); // throw runtime_error("Polling failed: " + to_string(result));
+        if (result < 0) close();
         return result;
     }
 
-    void disconnect(int socket) {
+    bool disconnect(int socket) {
         size_t size = pollfds.size();
         size_t i = 0;
         for (; i < size; i++) if (pollfds[i].fd == socket) break;
-        if (size == i) return; //throw runtime_error("Socket not found");
+        if (size == i) return false;
         ::close(socket);
         pollfds.erase(pollfds.begin() + i);
+        return true;
     }
 
     void close() {
-        // TODO test it. is it working?? 
         for (const pollfd& pfd: pollfds) ::close(pfd.fd);
         pollfds.clear();
     }
 
     // Send in chunks if data is too long.
-    ssize_t send(int socket, const char* data, size_t size, int flags) {
-        ssize_t sent = 0;
+    bool send(int socket, const char* data, size_t size, int flags) {
         
         // send in chunks if the message is too long
         if (size > MAX_BUFFER_SIZE) {
-            for (int i = 0; i < size; i += MAX_BUFFER_SIZE)
-                sent += send(socket, data + i, min(size - i, MAX_BUFFER_SIZE), flags);
-            if (sent == size) return sent;
-            disconnect(socket);
-            return -1;
+            for (int i = 0; i < size; i += MAX_BUFFER_SIZE) {
+                size_t minsize = min(size - i, MAX_BUFFER_SIZE);
+                if (!send(socket, data + i, minsize, flags)) {
+                    disconnect(socket);
+                    return false;
+                } 
+            }
+            return true;
         }
         
         // simply send or throw error
-        sent = ::send(socket, data, size, flags);
-        if (sent <= 0) disconnect(socket); //throw runtime_error("Sending failed");
-        return sent;
+        if (::send(socket, data, size, flags) == size) {
+            size_t sizechk;
+            ::recv(socket, (char*)&sizechk, sizeof(sizechk), flags);
+            if (sizechk == size) return true;
+        }
+        disconnect(socket);
+        return false;
     }
 
     ssize_t recv(int socket, char* data, size_t size, int flags) {
@@ -121,60 +109,143 @@ public:
 
         // receive in chunks if the message is too long
         if (size > MAX_BUFFER_SIZE) {
-            for (int i = 0; i < size; i += MAX_BUFFER_SIZE)
-                read += recv(socket, data + i, min(size - i, MAX_BUFFER_SIZE), flags);
-            if (read == size) return read;
-            disconnect(socket);
-            return -1;
+            for (int i = 0; i < size; i += MAX_BUFFER_SIZE) {
+                size_t minsize = min(size - i, MAX_BUFFER_SIZE);
+                if (recv(socket, data + i, minsize, flags) != minsize) {
+                    disconnect(socket);
+                    return -1;
+                }
+                read += minsize;
+            }
+            return read;
         }
 
         // simply receive or throw error
         read = ::recv(socket, data, size, flags);
-        if (read <= 0) disconnect(socket); //throw runtime_error("Receiving failed");
-        return read;
+        ::send(socket, (char*)&read, sizeof(read), flags);
+        if (read == size) return read;
+        disconnect(socket);
+        return -1;
     }
 
-    void send(int socket, const string& msg, int flags = 0) {
+    bool send(int socket, const string& msg, int flags = 0) {
         size_t size = msg.size();
-        send(socket, (const char*)&size, sizeof(size), flags);
-        send(socket, msg.c_str(), msg.size(), flags);
+        if (
+            send(socket, (const char*)&size, sizeof(size), flags) && 
+            send(socket, msg.c_str(), size, flags)
+        ) return true;
+        disconnect(socket);
+        return false;
     }
 
     string recv(int socket, int flags = 0) {
-        string msg;
         size_t size;
-        size_t read = recv(socket, (char*)&size, sizeof(size), flags);
-        if (read != sizeof(size)) {
+        if (recv(socket, (char*)&size, sizeof(size), flags) != sizeof(size)) {
             disconnect(socket);
             return "";
         }
         char buff[size + 1] = {0};
-        recv(socket, buff, size, flags);
+        if (recv(socket, buff, size, flags) != size) {
+            disconnect(socket);
+            return "";
+        }
         return buff;
+    }
+
+    template<typename T>
+    bool send_vector(int socket, const vector<T>& elems, int flags = 0) {
+        size_t size = elems.size();
+        const void* data = elems.data();
+        if (
+            send(socket, (const char*)&size, sizeof(size), flags) &&
+            send(socket, (const char*)data, size * sizeof(T), flags)
+        ) return true;
+        disconnect(socket);
+        return false;
+    }
+
+    template<typename T>
+    vector<T> recv_vector(int socket, int flags = 0) {
+        size_t size;
+        if (recv(socket, (char*)&size, sizeof(size), flags) != sizeof(size)) disconnect(socket);
+        else {
+            T buff[size] = {0};
+            size_t fullsize = sizeof(T) * size;
+            if (recv(socket, (char*)buff, fullsize, flags) == fullsize) {
+                vector<T> data(buff, buff + size);
+                return data;
+            }
+            disconnect(socket);
+        }
+        return {};
     }
     
 };
 
 
 
-// class TCP {
-// protected:
-//     const size_t MAX_BUFFER_SIZE = 1024;
+class TCPServer: public TCPSocket {
+public:
 
-//     sockaddr_in serverAddress{};
+    sockaddr_in listen(uint16_t port) {
+        sockaddr_in saddrin = prepare(port);
 
-//     int prepare(uint16_t port, in_addr_t addr = INADDR_ANY) {
-//         // Create socket
-//         int socket = ::socket(AF_INET, SOCK_STREAM, 0);
-//         if (socket == -1) throw runtime_error("Error creating socket");
+        // Bind the socket
+        if (bind(mainSocket, (struct sockaddr*)&saddrin, sizeof(saddrin)) == -1) {
+            ::close(mainSocket);
+            throw runtime_error("Unable binding socket to port: " + to_string(port));
+        }
 
-//         // Set up server address
-//         serverAddress.sin_family = AF_INET;
-//         serverAddress.sin_addr.s_addr = addr; // Use any available network interface
-//         serverAddress.sin_port = htons(port); // Replace with your desired port
+        // Listen for incoming connections
+        if (::listen(mainSocket, 5) == -1) {
+            ::close(mainSocket);
+            throw runtime_error("Unable to listen on port: " + to_string(port));
+        }
 
-//         return socket;INADDR_ANY
-//     }
-// public:
+        return saddrin;
+    }
 
-// };
+    int accept() {
+        // Check for incoming connections on the server socket
+        if (!(pollfds[0].revents & POLLIN)) return 0;
+        int remoteSocket = ::accept(mainSocket, nullptr, nullptr);
+        if (remoteSocket == -1) return 0; // throw new runtime_error("Error accepting connection");
+        
+        // Add corresponding pollfd for the new client
+        pollfd pfd;
+        pfd.fd = remoteSocket;
+        pfd.events = POLLIN;
+        pollfds.push_back(pfd);
+    
+        return remoteSocket;
+    }
+
+    int poll(int timeout = 100) {
+        int p = TCPSocket::poll(timeout);
+        if (p) accept();
+        return p;
+    }
+
+};
+
+
+class TCPClient: public TCPSocket {
+public:
+    int connect(const char* addr, uint16_t port) {
+        // Create a socket
+        sockaddr_in saddrin = prepare(port, inet_addr(addr));
+
+        // Connect to the server
+        if (::connect(mainSocket, (struct sockaddr*)&saddrin, sizeof(saddrin)) == -1) {
+            ::close(mainSocket);
+            throw runtime_error("Error connecting to server");
+        }
+
+        return mainSocket;
+    }
+
+    int connect(const string& addr, uint16_t port) {
+        return connect(addr.c_str(), port);
+    }
+
+};

@@ -10,15 +10,14 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-#include <asio.hpp>
+#include "tcp.hpp"
 #include "ChangedRectangle.hpp"
 
 using namespace std;
 
 class DesktopClient {
 private:
-    asio::io_context ioContext;
-    asio::ip::tcp::socket socket;
+    TCPClient client;
 
     Display* display;
     Window window;
@@ -103,42 +102,7 @@ private:
 
 protected:
 
-
-    bool hasData() {
-        return socket.available() > 0;
-    }
-
-    void receiveChangedRectangle(ChangedRectangle& rect) {
-        // Read the buffer size asynchronously
-        size_t bufferSize;
-        asio::async_read(socket, asio::buffer(&bufferSize, sizeof(size_t)),
-            [this, &rect, bufferSize](std::error_code ec, std::size_t /*length*/) {
-                if (!ec) {
-                    // Read the buffer data asynchronously
-                    std::vector<char> buffer(bufferSize);
-                    asio::async_read(socket, asio::buffer(buffer),
-                        [this, &rect, buffer](std::error_code ec, std::size_t /*length*/) {
-                            if (!ec) {
-                                // Deserialize the buffer into ChangedRectangle
-                                rect = ChangedRectangle::deserialize(buffer);
-                                
-                                // Call the displayChangedRectangle method in DesktopClient
-                                displayChangedRectangle(rect);
-
-                                // Continue processing the received data
-                                // (e.g., additional logic if needed)
-                            } else {
-                                std::cerr << "Error reading buffer data: " << ec.message() << std::endl;
-                            }
-                        });
-                } else {
-                    std::cerr << "Error reading buffer size: " << ec.message() << std::endl;
-                }
-            });
-    }
-
     bool displayChangedRectangle(const ChangedRectangle& rect) {
-        cout << "put image" << endl;
 
         // Check if the specified region is within the bounds of the window
         XWindowAttributes windowAttrs;
@@ -147,42 +111,49 @@ protected:
         if (rect.left < 0 || rect.top < 0 ||
             rect.left + rect.width + windowAttrs.border_width * 2 + 10 >= windowAttrs.width ||
             rect.top + rect.height + windowAttrs.border_width * 2 + 10 >= windowAttrs.height) {
-            cout << "Specified region is outside the bounds of the window" << endl;
+            //cout << "Specified region is outside the bounds of the window" << endl;
             return false;
         }
 
         // Display the ChangedRectangle pixels on the window
-        for (int y = rect.top; y < rect.top + rect.height; ++y) {
-            for (int x = rect.left; x < rect.left + rect.width; ++x) {
+
+        // std::vector<XPoint> points;
+        // std::vector<unsigned long> colors;
+
+        for (short y = rect.top; y < rect.top + rect.height; ++y) {
+            for (short x = rect.left; x < rect.left + rect.width; ++x) {
                 int pixelIndex = (y - rect.top) * rect.width + (x - rect.left);
                 if (rect.pixels.size() <= pixelIndex) break;
                 const ChangedRectangle::RGB& pixelColor = rect.pixels[pixelIndex];
+                XPoint point = {x, y};
+                // points.push_back(point);
+                // colors.push_back((pixelColor.r << 16) | (pixelColor.g << 8) | pixelColor.b);
                 putPixel(x, y, pixelColor.r, pixelColor.g, pixelColor.b);
             }
         }
+        // if (!points.empty()) {
+        //     XDrawPoints(display, window, gc, &points[0], points.size(), CoordModeOrigin);
+        //     XSetForeground(display, gc, 0);  // Reset color to avoid affecting subsequent drawing
+        //     XFlush(display);
+        // }
 
-        cout << "image out" << endl;
         return true;
     }
 
     void putPixel(int x, int y, uint8_t r, uint8_t g, uint8_t b) {
         XSetForeground(display, gc, (r << 16) | (g << 8) | b);
         XDrawPoint(display, window, gc, x, y);
-        XFlush(display);
     }
 
 public:
-    DesktopClient(const string& ipaddr, unsigned short port): 
-        socket(ioContext),
+    DesktopClient(const string& ipaddr, uint16_t port): 
         display(nullptr), 
         window(0)
     {
         init();
         createWindow();
-
-        asio::ip::tcp::resolver resolver(ioContext);
-        asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(ipaddr, std::to_string(port));
-        asio::connect(socket, endpoints);
+        
+        client.connect(ipaddr, port);
     }
 
     ~DesktopClient() {
@@ -197,17 +168,23 @@ public:
 
         while (true) {
             // Check for screen changes from the server
-            if (hasData()) {
-                ChangedRectangle rect;
-                receiveChangedRectangle(rect);
-
-                // Display the received ChangedRectangle on the window
-                // displayChangedRectangle(rect);
+            while (client.poll()) {
+                for (int sock: client.sockets()) {
+                    size_t changes;
+                    client.recv(sock, (char*)&changes, sizeof(changes), 0);
+                    for (size_t i = 0; i < changes; i++) {
+                        ChangedRectangle rect;
+                        if (rect.recv(client, sock))
+                            displayChangedRectangle(rect);
+                    }
+                    break; // we are connecting to only one server
+                }
             }
 
             if (!XPending(display)) continue;
             XEvent event;
             XNextEvent(display, &event);
+            while (XPending(display)) XNextEvent(display, &event);
 
             switch (event.type) {
                 case KeyPress:

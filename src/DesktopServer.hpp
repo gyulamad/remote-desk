@@ -6,7 +6,7 @@
 #include <map>
 #include <chrono>
 
-#include "Communicator.hpp"
+#include "tcp.hpp"
 #include "EventTrigger.hpp"
 #include "ScreenshotManager.hpp"
 
@@ -56,66 +56,57 @@ protected:
         // TODO
     }
 
-    vector<string> clientAddresses;
-    bool clientJoined = false;
-    ScreenshotManager screenshotManager = ScreenshotManager(20, 20);
+    // vector<string> clientAddresses;
+    // bool clientJoined = false;
+    ScreenshotManager screenshotManager = ScreenshotManager(100, 100);
     EventTrigger eventTrigger;
-    Communicator& server;
+    TCPServer& server;
     long long captureNextAt = 0;
-    long long captureFreq = 5000;
+    long long captureFreq = 100;
 public:
 
-    DesktopServer(Communicator& server): server(server) {
-        const string port = "9876";
-        cout << "server listening on port: " << port << endl;
-        server.listen(port);
-    }
+    DesktopServer(TCPServer& server): server(server) {}
 
     ~DesktopServer() {}
 
     void runEventLoop() {
         while (true) {
-            // if (server.isDataAvailable()) {
-                // const size_t commBuffSizeMax = 60000;
-                string receivedData; //(commBuffSizeMax, '\0');
-                string senderAddress;
-                ssize_t receivedLength = server.recv(receivedData, senderAddress);
-                clientAddresses.push_back(senderAddress);
-                clientJoined = true;
-                cout << "Client joined" << endl;
-                if (receivedLength > 3) {
-                    std::cout << "Received: " << receivedData << std::endl;
-                    
-                    vector<int> eventArgs;
-                    stringstream ss(receivedData.substr(2, receivedLength));
-                    string token;
-                    while (getline(ss, token, ','))
-                        eventArgs.push_back(stoi(token));
+            while (server.poll()) {
+                for (int sock: server.sockets()) {
+                    string msg = server.recv(sock);
+                    cout << "sock(" << sock << "): " << msg << endl;
+                    if (msg.empty()) cout << "Client disconnected" << endl;
+                    if (msg.size() > 3) {
+                        std::cout << "Received: " << msg << std::endl;
+                        
+                        vector<int> eventArgs;
+                        stringstream ss(msg.substr(2, msg.size()));
+                        string token;
+                        while (getline(ss, token, ','))
+                            eventArgs.push_back(stoi(token));
 
-                    eventCallbacks.at(receivedData.substr(0, 2))(this, eventArgs);
-                    
+                        eventCallbacks.at(msg.substr(0, 2))(this, eventArgs);
+                        
+                    }
                 }
-            // }
+            }
 
-            if (!clientJoined) continue;
+            if (server.sockets(true).empty()) continue;
 
             long long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
             if (now >= captureNextAt) {
                 cout << "Capture screen" << endl;
                 const vector<ChangedRectangle>& changes = screenshotManager.captureChanges();
-                
-                int i=0;
-                for (const ChangedRectangle& change: changes) {
-                    i++;
-                    try {
-                        string outs = change.toString();
-                        cout << "Sending image part (" << changes.size() << "/" << i << "): (" << outs.size() << "): [" << outs.substr(0, 80) << "...]" << endl; 
-                        for (const string& clientAddress: clientAddresses) 
-                            server.send(outs, clientAddress);
-                        cout << "Sent." << endl;
-                        usleep(1000);
-                    } catch (exception &e) {
-                        cout << "Image sending error: " << e.what() << endl;
+
+                for (int sock: server.sockets(true)) {
+                    size_t size = changes.size();
+                    server.send(sock, (const char*)&size, sizeof(size), 0);
+                    for (const ChangedRectangle& change: changes) {
+                        //usleep(1);
+                        if (!change.send(server, sock)) {
+                            cout << "Image sending failed" << endl;
+                            break;
+                        }
                     }
                 }
                 captureNextAt = now + captureFreq;

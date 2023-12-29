@@ -23,75 +23,93 @@ public:
     vector<RGB> pixels;
     // int incorrupted = 0;
 
-
-    // Serialize the ChangedRectangle into a buffer
-    vector<char> serialize() const {
-        vector<char> buffer;
-        buffer.resize(sizeof(int) * 4 + pixels.size() * sizeof(RGB));
-        char* ptr = buffer.data();
-
-        // Copy integer members to the buffer
-        memcpy(ptr, &width, sizeof(int));
-        ptr += sizeof(int);
-
-        memcpy(ptr, &height, sizeof(int));
-        ptr += sizeof(int);
-
-        memcpy(ptr, &left, sizeof(int));
-        ptr += sizeof(int);
-
-        memcpy(ptr, &top, sizeof(int));
-        ptr += sizeof(int);
-
-        // Copy pixel data to the buffer
-        memcpy(ptr, pixels.data(), pixels.size() * sizeof(RGB));
-
-        return buffer;
+    bool send(TCPSocket& tcp, int sock) const {
+        vector<int> pos = { width, height, left, top };
+        return 
+            tcp.send_vector<int>(sock, pos) &&
+            tcp.send_vector<RGB>(sock, pixels);
     }
+
+    bool recv(TCPSocket& tcp, int sock) {
+        vector<int> pos = tcp.recv_vector<int>(sock);
+        if (pos.size() != 4) return false; //throw runtime_error("Invalid rectangle positions: " + to_string(pos.size()));
+        width = pos.at(0);
+        height = pos.at(1);
+        left = pos.at(2);
+        top = pos.at(3);
+        pixels = tcp.recv_vector<RGB>(sock);
+        return pixels.size() == width * height;
+    }
+
+
+    // // Serialize the ChangedRectangle into a buffer
+    // vector<char> serialize() const {
+    //     vector<char> buffer;
+    //     buffer.resize(sizeof(int) * 4 + pixels.size() * sizeof(RGB));
+    //     char* ptr = buffer.data();
+
+    //     // Copy integer members to the buffer
+    //     memcpy(ptr, &width, sizeof(int));
+    //     ptr += sizeof(int);
+
+    //     memcpy(ptr, &height, sizeof(int));
+    //     ptr += sizeof(int);
+
+    //     memcpy(ptr, &left, sizeof(int));
+    //     ptr += sizeof(int);
+
+    //     memcpy(ptr, &top, sizeof(int));
+    //     ptr += sizeof(int);
+
+    //     // Copy pixel data to the buffer
+    //     memcpy(ptr, pixels.data(), pixels.size() * sizeof(RGB));
+
+    //     return buffer;
+    // }
     
-    // Deserialize a buffer into a ChangedRectangle object
-    static ChangedRectangle deserialize(const std::vector<char>& buffer) {
-        ChangedRectangle rect;
+    // // Deserialize a buffer into a ChangedRectangle object
+    // static ChangedRectangle deserialize(const std::vector<char>& buffer) {
+    //     ChangedRectangle rect;
 
-        // Validate the buffer size
-        if (buffer.size() < sizeof(int) * 4) {
-            throw std::runtime_error("Invalid buffer size for deserialization");
-        }
+    //     // Validate the buffer size
+    //     if (buffer.size() < sizeof(int) * 4) {
+    //         throw std::runtime_error("Invalid buffer size for deserialization");
+    //     }
 
-        const char* ptr = buffer.data();
+    //     const char* ptr = buffer.data();
 
-        // Copy integer members from the buffer
-        memcpy(&rect.width, ptr, sizeof(int));
-        ptr += sizeof(int);
+    //     // Copy integer members from the buffer
+    //     memcpy(&rect.width, ptr, sizeof(int));
+    //     ptr += sizeof(int);
 
-        memcpy(&rect.height, ptr, sizeof(int));
-        ptr += sizeof(int);
+    //     memcpy(&rect.height, ptr, sizeof(int));
+    //     ptr += sizeof(int);
 
-        memcpy(&rect.left, ptr, sizeof(int));
-        ptr += sizeof(int);
+    //     memcpy(&rect.left, ptr, sizeof(int));
+    //     ptr += sizeof(int);
 
-        memcpy(&rect.top, ptr, sizeof(int));
-        ptr += sizeof(int);
+    //     memcpy(&rect.top, ptr, sizeof(int));
+    //     ptr += sizeof(int);
 
-        // Calculate the expected size of the pixel vector
-        size_t expectedSize = rect.width * rect.height * sizeof(ChangedRectangle::RGB);
+    //     // Calculate the expected size of the pixel vector
+    //     size_t expectedSize = rect.width * rect.height * sizeof(ChangedRectangle::RGB);
 
-        // Validate the buffer size for pixel data
-        if (buffer.size() < sizeof(int) * 4 + expectedSize) {
-            throw std::runtime_error("Invalid buffer size for pixel data deserialization");
-        }
+    //     // Validate the buffer size for pixel data
+    //     if (buffer.size() < sizeof(int) * 4 + expectedSize) {
+    //         throw std::runtime_error("Invalid buffer size for pixel data deserialization");
+    //     }
 
-        // Resize the pixel vector
-        rect.pixels.resize(rect.width * rect.height);
+    //     // Resize the pixel vector
+    //     rect.pixels.resize(rect.width * rect.height);
 
-        // Copy pixel data from the buffer
-        memcpy(rect.pixels.data(), ptr, expectedSize);
+    //     // Copy pixel data from the buffer
+    //     memcpy(rect.pixels.data(), ptr, expectedSize);
 
-        // Validate the actual size of the pixel vector
-        rect.validatePixelsSize();
+    //     // Validate the actual size of the pixel vector
+    //     rect.validatePixelsSize();
 
-        return rect;
-    }
+    //     return rect;
+    // }
 
     string toString() const {
         validatePixelsSize();
