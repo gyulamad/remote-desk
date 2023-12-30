@@ -44,7 +44,7 @@ protected:
 
 public:
     const size_t MAX_BUFFER_SIZE = 1023;
-    static const int DEFAULT_POLL_TIMEOUT = 100; // TODO: on slow internet it can cause collusion on messages when both side want to send message in the same time. need to change dinamically aligned to the connection latency...
+    static const int DEFAULT_POLL_TIMEOUT = 1;
 
     virtual ~TCPSocket() {
         close();

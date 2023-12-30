@@ -114,16 +114,15 @@ private:
 
 
     vector<string> updates;
-    void sendUpdates() {
-        if (updates.empty()) return;
+    void sendUpdates(int socket) {
+        if (updates.empty()) return sendNoUpdate(socket);
         string update = updates[0];
-        bool ok = false;
-        for (int socket: client.sockets(true)) {
-            ok = client.send(socket, update);
-            break; // we are connecting only one server
-        }
-        if (ok) updates.erase(updates.begin());
-        else cerr << "unable send update:" << update << endl;
+        if (!client.send(socket, update)) cerr << "unable send update:" << update << endl;
+        else updates.erase(updates.begin()); 
+    }
+
+    void sendNoUpdate(int socket) {
+        if (!client.send(socket, "np0")) cerr << "unable send no-update" << endl;
     }
 
 protected:
@@ -190,12 +189,12 @@ public:
                             break;
                         } else rects[i] = rect;
                     }
+                    // update the server about our state
+                    sendUpdates(socket);
                     break; // we are connecting to only one server
                 }
             }
 
-            // update the server about our state
-            sendUpdates();
 
             // show changes if anything left to see..
             for (const ChangedRectangle& rect: rects) displayChangedRectangle(rect);

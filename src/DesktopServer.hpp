@@ -20,6 +20,7 @@ protected:
     typedef void (*EventCallback)(DesktopServer*, int, const vector<int>&);
 
     const map<string, EventCallback> eventCallbacks = {
+        { "np", noUpdates },
         { "jn", triggerJoin },
         { "kp", triggerKeyPress },
         { "kr", triggerKeyRelease },
@@ -28,6 +29,10 @@ protected:
         { "mm", triggerMouseMove },
         { "wr", adaptWindowResize }, // TODO: may YAGNI now but we may want to send less pixel if the client window is small
     };
+
+    static void noUpdates(DesktopServer* that, int socket, const vector<int>& args) {
+        // TODO
+    }
 
     static void triggerJoin(DesktopServer* that, int socket, const vector<int>& args) {
         // TODO
@@ -65,7 +70,7 @@ protected:
 
     // vector<string> clientAddresses;
     // bool clientJoined = false;
-    ScreenshotManager screenshotManager = ScreenshotManager(40, 40);
+    ScreenshotManager screenshotManager = ScreenshotManager(4, 4);
     int originWidth = screenshotManager.getScreenWidth();
     int originHeight = screenshotManager.getScreenHeight();
     int clientWidth = 800; // client have to send it to update.
@@ -73,7 +78,7 @@ protected:
     EventTrigger eventTrigger;
     TCPServer& server;
     long long captureNextAt = 0;
-    long long captureFreq = 100;
+    long long captureFreq = 20;
 
     bool resizeAndSendRectangles(int socket, const vector<ChangedRectangle>& rects) const {
         size_t size = rects.size();
@@ -95,6 +100,24 @@ protected:
         return true;
     }
 
+    void recvUpdates(int socket) {
+        string msg = server.recv(socket);
+        cout << "socket(" << socket << "): " << msg << endl;
+        if (msg.empty()) cout << "Client disconnected" << endl;
+        if (msg.size() > 3) {
+            cout << "Received: " << msg << endl;
+            
+            vector<int> eventArgs;
+            stringstream ss(msg.substr(2, msg.size()));
+            string token;
+            while (getline(ss, token, ','))
+                eventArgs.push_back(stoi(token));
+
+            eventCallbacks.at(msg.substr(0, 2))(this, socket, eventArgs);
+            
+        }
+    }
+
 public:
 
     DesktopServer(TCPServer& server): server(server) {}
@@ -104,25 +127,10 @@ public:
     void runEventLoop() {
         vector<ChangedRectangle> changes;
         while (true) {
-            while (server.poll()) { // TODO: !@# both side can not poll, server have to read the updates (if any or nope) after images sent so that the wont collide and crash
-                for (int socket: server.sockets()) {
-                    string msg = server.recv(socket);
-                    cout << "socket(" << socket << "): " << msg << endl;
-                    if (msg.empty()) cout << "Client disconnected" << endl;
-                    if (msg.size() > 3) {
-                        cout << "Received: " << msg << endl;
-                        
-                        vector<int> eventArgs;
-                        stringstream ss(msg.substr(2, msg.size()));
-                        string token;
-                        while (getline(ss, token, ','))
-                            eventArgs.push_back(stoi(token));
+            // server polling only to accept new client connections,
+            // (main poll in client side)
+            while (server.poll()); 
 
-                        eventCallbacks.at(msg.substr(0, 2))(this, socket, eventArgs);
-                        
-                    }
-                }
-            }
             if (server.sockets(true).empty()) continue;
 
             if (changes.size()) {
@@ -134,13 +142,14 @@ public:
                         socket
                     );
                     if (it != fullRefreshNeededSockets.end()) {                        
-                        resizeAndSendRectangles(socket, allRects);
+                        if (!resizeAndSendRectangles(socket, allRects)) cerr << "unable to send all rectangles" << endl;
                         fullRefreshNeededSockets.erase(it);
                         if (!fullRefreshNeededSockets.size()) allRects.clear();
-                        continue;
+                        
                     }
+                    else if (!resizeAndSendRectangles(socket, changes)) cerr << "unable to send changed rectangles" << endl;
 
-                    if (!resizeAndSendRectangles(socket, changes)) break;
+                    recvUpdates(socket);
                 }
                 changes.clear();
             }
