@@ -27,7 +27,7 @@ protected:
         { "mp", triggerMousePress },
         { "mr", triggerMouseRelease },
         { "mm", triggerMouseMove },
-        { "wr", adaptWindowResize }, // TODO: may YAGNI now but we may want to send less pixel if the client window is small
+        { "wr", adaptWindowResize },
     };
 
     static void noUpdates(DesktopServer* that, int socket, const vector<int>& args) {
@@ -90,7 +90,7 @@ protected:
         for (const ChangedRectangle& rect: rects) {
             ChangedRectangle resized = rect.resize(
                 originWidth, originHeight, 
-                clientWidth, clientHeight
+                clientWidth, clientHeight // TODO: it should be a vector, each client can have different window size
             );
             if (!resized.send(server, socket)) {
                 server.disconnect(socket, "partial image sending failed");
