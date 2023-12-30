@@ -67,7 +67,7 @@ protected:
     EventTrigger eventTrigger;
     TCPServer& server;
     long long captureNextAt = 0;
-    long long captureFreq = 10;
+    long long captureFreq = 100;
 public:
 
     DesktopServer(TCPServer& server): server(server) {}
@@ -75,6 +75,7 @@ public:
     ~DesktopServer() {}
 
     void runEventLoop() {
+        vector<ChangedRectangle> changes;
         while (true) {
             while (server.poll()) {
                 for (int sock: server.sockets()) {
@@ -95,16 +96,11 @@ public:
                     }
                 }
             }
-
             if (server.sockets(true).empty()) continue;
 
-            long long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-            if (now >= captureNextAt) {
-                // cout << "Capture screen" << endl;
-                const vector<ChangedRectangle>& changes = screenshotManager.captureChanges();
-
+            size_t size = changes.size();
+            if (size) {
                 for (int sock: server.sockets(true)) {
-                    size_t size = changes.size();
                     if (!server.send(sock, (const char*)&size, sizeof(size), 0)) {
                         server.disconnect(sock, "unable to send changed rectangles count");
                         break;
@@ -120,6 +116,13 @@ public:
                         }
                     }
                 }
+                changes.clear();
+            }
+
+            long long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+            if (now >= captureNextAt) {
+                // cout << "Capture screen" << endl;
+                changes = screenshotManager.captureChanges();
                 captureNextAt = now + captureFreq;
             }
         }

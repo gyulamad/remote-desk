@@ -44,7 +44,7 @@ protected:
 
 public:
     const size_t MAX_BUFFER_SIZE = 1023;
-    static const int DEFAULT_POLL_TIMEOUT = 1;
+    static const int DEFAULT_POLL_TIMEOUT = 100;
 
     virtual ~TCPSocket() {
         close();
@@ -97,12 +97,12 @@ public:
         }
         
         // simply send or throw error
+        size_t sizechk;
         if (::send(socket, data, size, flags) == size) {
-            size_t sizechk;
             ::recv(socket, (char*)&sizechk, sizeof(sizechk), flags);
             if (sizechk == size) return true;
         }
-        disconnect(socket, "package sending failed");
+        disconnect(socket, "packet sending failed");
         return false;
     }
 

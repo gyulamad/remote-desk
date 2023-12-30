@@ -126,9 +126,11 @@ public:
     ChangedRectangle resize(int originWidth, int originHeight, int clientWidth, int clientHeight) const {
         ChangedRectangle resized;
 
-        double scale = clientWidth > clientHeight
-            ? (double)clientWidth / originWidth
-            : (double)clientHeight / originHeight; // TODO: portrait?
+        double scale =  clientHeight / (double)originHeight < clientWidth / (double)originWidth ?
+            // Scale to fit height  
+            scale = (double)clientHeight / originHeight :
+            // Scale to fit width
+            scale = (double)clientWidth / originWidth; 
             
         // Calculate the new dimensions
         resized.width = (int)(width * scale) + 1;

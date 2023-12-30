@@ -95,11 +95,35 @@ private:
         cout << "Mouse moved: (" << motionEvent.x << ", " << motionEvent.y << ")" << endl;
     }
 
+    int windowWidth = 0, windowHeight = 0;
     void handleResize(const XConfigureEvent& configureEvent) {
         // Stub method for window resize event handling
         cout << "Window resized: " << configureEvent.width << " x " << configureEvent.height << endl;
-        for (int sock: client.sockets(true)) 
-            ;//client.send(sock, "wr" + to_string(configureEvent.width) + "," + to_string(configureEvent.height));
+        if (windowWidth != configureEvent.width || 
+            windowHeight != configureEvent.height
+        ) { 
+            windowWidth = configureEvent.width;
+            windowHeight = configureEvent.height;
+            updates.push_back("wr" 
+                + to_string(configureEvent.width) + "," 
+                + to_string(configureEvent.height)
+            );
+            
+        }
+    }
+
+
+    vector<string> updates;
+    void sendUpdates() {
+        if (updates.empty()) return;
+        string update = updates[0];
+        bool ok = false;
+        for (int sock: client.sockets(true)) {
+            ok = client.send(sock, update);
+            break; // we are connecting only one server
+        }
+        if (ok) updates.erase(updates.begin());
+        else cerr << "unable send update:" << update << endl;
     }
 
 protected:
@@ -111,7 +135,7 @@ protected:
         XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
         short ymax = rect.top + rect.height;
         short xmax = rect.left + rect.width;
-        for (short y = rect.top; y < ymax; ++y) {
+        for (short y = rect.top; y < ymax; ++y)
             for (short x = rect.left; x < xmax; ++x) {
                 int pixelIndex = (y - rect.top) * rect.width + (x - rect.left);
                 if (pixsize <= pixelIndex) break;
@@ -122,7 +146,6 @@ protected:
                 }
                 XDrawPoint(display, window, gc, x, y);
             }
-        }
 
         return true;
     }
@@ -170,6 +193,11 @@ public:
                     break; // we are connecting to only one server
                 }
             }
+
+            // update the server about our state
+            sendUpdates();
+
+            // show changes if anything left to see..
             for (const ChangedRectangle& rect: rects) displayChangedRectangle(rect);
             rects.clear();
 
