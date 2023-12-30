@@ -118,8 +118,8 @@ private:
         if (updates.empty()) return;
         string update = updates[0];
         bool ok = false;
-        for (int sock: client.sockets(true)) {
-            ok = client.send(sock, update);
+        for (int socket: client.sockets(true)) {
+            ok = client.send(socket, update);
             break; // we are connecting only one server
         }
         if (ok) updates.erase(updates.begin());
@@ -176,17 +176,17 @@ public:
 
             // Check for screen changes from the server
             while (client.poll()) {
-                for (int sock: client.sockets()) {
+                for (int socket: client.sockets()) {
                     size_t changes;
-                    if (-1 == client.recv(sock, (char*)&changes, sizeof(changes), 0)) {
-                        client.disconnect(sock, "unable to recieve changes count");
+                    if (-1 == client.recv(socket, (char*)&changes, sizeof(changes), 0)) {
+                        client.disconnect(socket, "unable to recieve changes count");
                         break;
                     }
                     rects.resize(changes);
                     for (size_t i = 0; i < changes; i++) {
                         ChangedRectangle rect;
-                        if (-1 == rect.recv(client, sock)) {
-                            client.disconnect(sock, "unable to recieve change");
+                        if (-1 == rect.recv(client, socket)) {
+                            client.disconnect(socket, "unable to recieve change");
                             break;
                         } else rects[i] = rect;
                     }

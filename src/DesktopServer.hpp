@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include <chrono>
+#include <algorithm>
 
 #include "tcp.hpp"
 #include "EventTrigger.hpp"
@@ -16,7 +17,7 @@ using namespace chrono;
 class DesktopServer {
 protected:
 
-    typedef void (*EventCallback)(DesktopServer*, const vector<int>&);
+    typedef void (*EventCallback)(DesktopServer*, int, const vector<int>&);
 
     const map<string, EventCallback> eventCallbacks = {
         { "jn", triggerJoin },
@@ -28,46 +29,72 @@ protected:
         { "wr", adaptWindowResize }, // TODO: may YAGNI now but we may want to send less pixel if the client window is small
     };
 
-    static void triggerJoin(DesktopServer* that, const vector<int>& args) {
+    static void triggerJoin(DesktopServer* that, int socket, const vector<int>& args) {
         // TODO
     }
 
-    static void triggerKeyPress(DesktopServer* that, const vector<int>& args) {
+    static void triggerKeyPress(DesktopServer* that, int socket, const vector<int>& args) {
         that->eventTrigger.triggerKeyEvent(args.at(0), true);
     }
 
-    static void triggerKeyRelease(DesktopServer* that, const vector<int>& args) {
+    static void triggerKeyRelease(DesktopServer* that, int socket, const vector<int>& args) {
         that->eventTrigger.triggerKeyEvent(args.at(0), false);
     }
 
-    static void triggerMousePress(DesktopServer* that, const vector<int>& args) {
+    static void triggerMousePress(DesktopServer* that, int socket, const vector<int>& args) {
         that->eventTrigger.triggerMouseEvent(args.at(0), true);
     }
 
-    static void triggerMouseRelease(DesktopServer* that, const vector<int>& args) {
+    static void triggerMouseRelease(DesktopServer* that, int socket, const vector<int>& args) {
         that->eventTrigger.triggerMouseEvent(args.at(0), false);    
     }
 
-    static void triggerMouseMove(DesktopServer* that, const vector<int>& args) {
+    static void triggerMouseMove(DesktopServer* that, int socket, const vector<int>& args) {
         that->eventTrigger.triggerMouseMoveEvent(args.at(0), args.at(1));
     }
 
-    static void adaptWindowResize(DesktopServer* that, const vector<int>& args) {
+    vector<ChangedRectangle> allRects;
+    vector<int> fullRefreshNeededSockets;
+    static void adaptWindowResize(DesktopServer* that, int socket, const vector<int>& args) {
         that->clientWidth = args[0];
         that->clientHeight = args[1];
+        that->fullRefreshNeededSockets.push_back(socket);
+        if (that->allRects.empty())
+            that->allRects = that->screenshotManager.getAllRectangles();
     }
 
     // vector<string> clientAddresses;
     // bool clientJoined = false;
-    ScreenshotManager screenshotManager = ScreenshotManager(4, 4);
+    ScreenshotManager screenshotManager = ScreenshotManager(40, 40);
     int originWidth = screenshotManager.getScreenWidth();
     int originHeight = screenshotManager.getScreenHeight();
-    int clientWidth = 800; // TODO: client have to send it..
-    int clientHeight = 600; // ...it is now only the assumed default.
+    int clientWidth = 800; // client have to send it to update.
+    int clientHeight = 600; // it is now only the assumed default.
     EventTrigger eventTrigger;
     TCPServer& server;
     long long captureNextAt = 0;
     long long captureFreq = 100;
+
+    bool resizeAndSendRectangles(int socket, const vector<ChangedRectangle>& rects) const {
+        size_t size = rects.size();
+        if (!size) return true;
+        if (!server.send(socket, (const char*)&size, sizeof(size), 0)) {
+            server.disconnect(socket, "unable to send changed rectangles count");
+            return false;
+        }
+        for (const ChangedRectangle& rect: rects) {
+            ChangedRectangle resized = rect.resize(
+                originWidth, originHeight, 
+                clientWidth, clientHeight
+            );
+            if (!resized.send(server, socket)) {
+                server.disconnect(socket, "partial image sending failed");
+                return false;
+            }
+        }
+        return true;
+    }
+
 public:
 
     DesktopServer(TCPServer& server): server(server) {}
@@ -77,13 +104,13 @@ public:
     void runEventLoop() {
         vector<ChangedRectangle> changes;
         while (true) {
-            while (server.poll()) {
-                for (int sock: server.sockets()) {
-                    string msg = server.recv(sock);
-                    cout << "sock(" << sock << "): " << msg << endl;
+            while (server.poll()) { // TODO: !@# both side can not poll, server have to read the updates (if any or nope) after images sent so that the wont collide and crash
+                for (int socket: server.sockets()) {
+                    string msg = server.recv(socket);
+                    cout << "socket(" << socket << "): " << msg << endl;
                     if (msg.empty()) cout << "Client disconnected" << endl;
                     if (msg.size() > 3) {
-                        std::cout << "Received: " << msg << std::endl;
+                        cout << "Received: " << msg << endl;
                         
                         vector<int> eventArgs;
                         stringstream ss(msg.substr(2, msg.size()));
@@ -91,30 +118,29 @@ public:
                         while (getline(ss, token, ','))
                             eventArgs.push_back(stoi(token));
 
-                        eventCallbacks.at(msg.substr(0, 2))(this, eventArgs);
+                        eventCallbacks.at(msg.substr(0, 2))(this, socket, eventArgs);
                         
                     }
                 }
             }
             if (server.sockets(true).empty()) continue;
 
-            size_t size = changes.size();
-            if (size) {
-                for (int sock: server.sockets(true)) {
-                    if (!server.send(sock, (const char*)&size, sizeof(size), 0)) {
-                        server.disconnect(sock, "unable to send changed rectangles count");
-                        break;
+            if (changes.size()) {
+                for (int socket: server.sockets(true)) {
+
+                    auto it = find(
+                        fullRefreshNeededSockets.begin(), 
+                        fullRefreshNeededSockets.end(), 
+                        socket
+                    );
+                    if (it != fullRefreshNeededSockets.end()) {                        
+                        resizeAndSendRectangles(socket, allRects);
+                        fullRefreshNeededSockets.erase(it);
+                        if (!fullRefreshNeededSockets.size()) allRects.clear();
+                        continue;
                     }
-                    for (const ChangedRectangle& change: changes) {
-                        ChangedRectangle resized = change.resize(
-                            originWidth, originHeight, 
-                            clientWidth, clientHeight
-                        );
-                        if (!resized.send(server, sock)) {
-                            server.disconnect(sock, "partial image sending failed");
-                            break;
-                        }
-                    }
+
+                    if (!resizeAndSendRectangles(socket, changes)) break;
                 }
                 changes.clear();
             }

@@ -110,8 +110,8 @@ public:
         changedRectangles.clear();
 
         // Iterate through each small area
-        for (int y = 0; y < numImagesY; ++y) {
-            for (int x = 0; x < numImagesX; ++x) {
+        for (int y = 0; y < numImagesY; y++) {
+            for (int x = 0; x < numImagesX; x++) {
                 // Calculate the coordinates and size of the small area
                 int top = y * smallImageHeight;
                 int left = x * smallImageWidth;
@@ -150,5 +150,32 @@ public:
         return screenHeight;
         // int screen = DefaultScreen(display);
         // return DisplayHeight(display, screen);
+    }
+
+    vector<ChangedRectangle> getAllRectangles() {
+        vector<ChangedRectangle> allRectangles;
+        int x = 0, y = 0;
+        for (const vector<XImage*>& previousImageRow: previousImages) {            
+            for (const XImage* previousImage: previousImageRow) {
+                // Calculate the coordinates and size of the small area
+                int top = y * smallImageHeight;
+                int left = x * smallImageWidth;
+
+                // Store the changed rectangle in the vector
+                ChangedRectangle rect;
+                try {
+                    rect.fromXImage(*previousImage);
+                    rect.top = top;
+                    rect.left = left;
+                    allRectangles.push_back(rect);
+                } catch (exception &e) {
+                    cout << "Fullscreen image error: " << e.what() << endl;
+                }
+                x++;
+            }
+            x = 0;
+            y++;
+        }
+        return allRectangles;
     }
 };

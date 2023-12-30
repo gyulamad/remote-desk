@@ -118,7 +118,7 @@ public:
         }
     };
 
-#define ReducedRGB RGB111S
+#define ReducedRGB RGB565
 
     int width, height, left, top;
     vector<ReducedRGB> pixels;
@@ -155,21 +155,21 @@ public:
         return resized;
     }
 
-    bool send(TCPSocket& tcp, int sock) const {
+    bool send(TCPSocket& tcp, int socket) const {
         vector<int> pos = { width, height, left, top };
         return 
-            tcp.send_vector<int>(sock, pos) &&
-            tcp.send_vector<ReducedRGB>(sock, pixels);
+            tcp.send_vector<int>(socket, pos) &&
+            tcp.send_vector<ReducedRGB>(socket, pixels);
     }
 
-    bool recv(TCPSocket& tcp, int sock) {
-        vector<int> pos = tcp.recv_vector<int>(sock);
+    bool recv(TCPSocket& tcp, int socket) {
+        vector<int> pos = tcp.recv_vector<int>(socket);
         if (pos.size() != 4) return false; //throw runtime_error("Invalid rectangle positions: " + to_string(pos.size()));
         width = pos.at(0);
         height = pos.at(1);
         left = pos.at(2);
         top = pos.at(3);
-        pixels = tcp.recv_vector<ReducedRGB>(sock);
+        pixels = tcp.recv_vector<ReducedRGB>(socket);
         return pixels.size() == width * height;
     }
 

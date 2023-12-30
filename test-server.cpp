@@ -18,12 +18,12 @@ int main() {
     while (true) {
         cout << "poll..." << endl;
         while (server.poll())
-            for (int sock: server.sockets()) {
-                string in = server.recv(sock);
+            for (int socket: server.sockets()) {
+                string in = server.recv(socket);
                 cout << "Recieved: " << in << endl;
                 string out = "Echo: " + in;
                 cout << "Sending echo: " << out << endl;
-                server.send(sock, out);
+                server.send(socket, out);
             }
     }
 
