@@ -53,12 +53,13 @@ protected:
     }
 
     static void adaptWindowResize(DesktopServer* that, const vector<int>& args) {
-        // TODO
+        that->clientWidth = args[0];
+        that->clientHeight = args[1];
     }
 
     // vector<string> clientAddresses;
     // bool clientJoined = false;
-    ScreenshotManager screenshotManager = ScreenshotManager(100, 100);
+    ScreenshotManager screenshotManager = ScreenshotManager(4, 4);
     int originWidth = screenshotManager.getScreenWidth();
     int originHeight = screenshotManager.getScreenHeight();
     int clientWidth = 800; // TODO: client have to send it..
@@ -99,22 +100,22 @@ public:
 
             long long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
             if (now >= captureNextAt) {
-                cout << "Capture screen" << endl;
+                // cout << "Capture screen" << endl;
                 const vector<ChangedRectangle>& changes = screenshotManager.captureChanges();
-                int originWidth = screenshotManager.getScreenWidth();
-                int originHeight = screenshotManager.getScreenHeight();
 
                 for (int sock: server.sockets(true)) {
                     size_t size = changes.size();
-                    server.send(sock, (const char*)&size, sizeof(size), 0);
+                    if (!server.send(sock, (const char*)&size, sizeof(size), 0)) {
+                        server.disconnect(sock, "unable to send changed rectangles count");
+                        break;
+                    }
                     for (const ChangedRectangle& change: changes) {
-                        //usleep(1);
                         ChangedRectangle resized = change.resize(
                             originWidth, originHeight, 
                             clientWidth, clientHeight
                         );
                         if (!resized.send(server, sock)) {
-                            cout << "Image sending failed" << endl;
+                            server.disconnect(sock, "partial image sending failed");
                             break;
                         }
                     }

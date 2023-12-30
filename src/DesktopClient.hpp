@@ -98,6 +98,8 @@ private:
     void handleResize(const XConfigureEvent& configureEvent) {
         // Stub method for window resize event handling
         cout << "Window resized: " << configureEvent.width << " x " << configureEvent.height << endl;
+        for (int sock: client.sockets(true)) 
+            ;//client.send(sock, "wr" + to_string(configureEvent.width) + "," + to_string(configureEvent.height));
     }
 
 protected:
@@ -146,25 +148,30 @@ public:
             return;
         }
 
+        vector<ChangedRectangle> rects;
         while (true) {
 
             // Check for screen changes from the server
-            vector<ChangedRectangle> rects;
             while (client.poll()) {
                 for (int sock: client.sockets()) {
                     size_t changes;
-                    client.recv(sock, (char*)&changes, sizeof(changes), 0);
+                    if (-1 == client.recv(sock, (char*)&changes, sizeof(changes), 0)) {
+                        client.disconnect(sock, "unable to recieve changes count");
+                        break;
+                    }
                     rects.resize(changes);
                     for (size_t i = 0; i < changes; i++) {
                         ChangedRectangle rect;
-                        if (rect.recv(client, sock)) rects.push_back(rect);
-                            // displayChangedRectangle(rect);
+                        if (-1 == rect.recv(client, sock)) {
+                            client.disconnect(sock, "unable to recieve change");
+                            break;
+                        } else rects[i] = rect;
                     }
                     break; // we are connecting to only one server
                 }
             }
-            for (const ChangedRectangle& rect: rects)
-                displayChangedRectangle(rect);
+            for (const ChangedRectangle& rect: rects) displayChangedRectangle(rect);
+            rects.clear();
 
 
             if (!XPending(display)) continue;

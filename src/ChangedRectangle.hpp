@@ -122,7 +122,6 @@ public:
 
     int width, height, left, top;
     vector<ReducedRGB> pixels;
-    // int incorrupted = 0;
 
     ChangedRectangle resize(int originWidth, int originHeight, int clientWidth, int clientHeight) const {
         ChangedRectangle resized;
@@ -132,28 +131,22 @@ public:
             : (double)clientHeight / originHeight; // TODO: portrait?
             
         // Calculate the new dimensions
-        resized.width = static_cast<int>(width * scale) + 1;
-        resized.height = static_cast<int>(height * scale) + 1;
+        resized.width = (int)(width * scale) + 1;
+        resized.height = (int)(height * scale) + 1;
 
         // Center the resized image in the client window
-        resized.left = static_cast<int>(left * scale);
-        resized.top = static_cast<int>(top * scale);
+        resized.left = (int)(left * scale);
+        resized.top = (int)(top * scale);
 
-         // Resize the pixels without interpolation
-        // resized.pixels.resize(resized.width * resized.height);
-        resized.pixels.clear();
-
+         // Resize the pixels count
+        resized.pixels.resize(resized.width * resized.height);
         
         for (int x = 0; x < resized.width; x++) {
             for (int y = 0; y < resized.height; y++) {
                 int origX = (int)((double)(x) / scale);
                 int origY = (int)((double)(y) / scale);
 
-                // cout << "x:y " << x << ":" << y << " =>  orig " << origX << ":" << origY << endl;
-
-                // resized.pixels[y + resized.width * x] = pixels[origY + originWidth * origX];
-                size_t origIndex = origY + width * origX;
-                resized.pixels.push_back(pixels.at(origIndex));
+                resized.pixels[x + y * resized.width] = pixels[origX + origY * width];
             }
         }
 
@@ -188,10 +181,10 @@ public:
         width = ximage.width;
         height = ximage.height;
 
-        pixels.clear();
+        pixels.resize(width * height);
 
-        for (int y = 0; y < ximage.height; ++y) {
-            for (int x = 0; x < ximage.width; ++x) {
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
                 unsigned long pixel = XGetPixel(const_cast<XImage*>(&ximage), x, y);
                 RGB color;
                 color.r = (pixel >> 16) & 0xFF;
@@ -199,7 +192,7 @@ public:
                 color.b = pixel & 0xFF;
                 // Convert to ReducedRGB and store in the vector
                 ReducedRGB reducedColor(color.r, color.g, color.b);
-                pixels.push_back(reducedColor);
+                pixels[x + y * width] = reducedColor;
             }
         }
 

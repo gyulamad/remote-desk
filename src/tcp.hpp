@@ -43,7 +43,8 @@ protected:
     }
 
 public:
-    const size_t MAX_BUFFER_SIZE = 1024;
+    const size_t MAX_BUFFER_SIZE = 1023;
+    static const int DEFAULT_POLL_TIMEOUT = 1;
 
     virtual ~TCPSocket() {
         close();
@@ -58,19 +59,20 @@ public:
         return socks;
     }
 
-    int poll(int timeout = 1) {
+    int poll(int timeout = DEFAULT_POLL_TIMEOUT) {
         int result = ::poll(pollfds.data(), pollfds.size(), timeout);
         if (result < 0) close();
         return result;
     }
 
-    bool disconnect(int socket) {
+    bool disconnect(int socket, const string& reason) {
         size_t size = pollfds.size();
         size_t i = 0;
         for (; i < size; i++) if (pollfds[i].fd == socket) break;
         if (size == i) return false;
         ::close(socket);
         pollfds.erase(pollfds.begin() + i);
+        cerr << "Disconnect socket " << socket << ", reason: " << (reason.empty() ? "Unknown" : reason) << endl;
         return true;
     }
 
@@ -87,7 +89,7 @@ public:
             for (int i = 0; i < size; i += MAX_BUFFER_SIZE) {
                 size_t minsize = min(size - i, MAX_BUFFER_SIZE);
                 if (!send(socket, data + i, minsize, flags)) {
-                    disconnect(socket);
+                    disconnect(socket, "chunk sending failed");
                     return false;
                 } 
             }
@@ -100,7 +102,7 @@ public:
             ::recv(socket, (char*)&sizechk, sizeof(sizechk), flags);
             if (sizechk == size) return true;
         }
-        disconnect(socket);
+        disconnect(socket, "package sending failed");
         return false;
     }
 
@@ -112,7 +114,7 @@ public:
             for (int i = 0; i < size; i += MAX_BUFFER_SIZE) {
                 size_t minsize = min(size - i, MAX_BUFFER_SIZE);
                 if (recv(socket, data + i, minsize, flags) != minsize) {
-                    disconnect(socket);
+                    disconnect(socket, "chunk recieving failed");
                     return -1;
                 }
                 read += minsize;
@@ -124,7 +126,7 @@ public:
         read = ::recv(socket, data, size, flags);
         ::send(socket, (char*)&read, sizeof(read), flags);
         if (read == size) return read;
-        disconnect(socket);
+        disconnect(socket, "packet recieving failed");
         return -1;
     }
 
@@ -134,19 +136,19 @@ public:
             send(socket, (const char*)&size, sizeof(size), flags) && 
             send(socket, msg.c_str(), size, flags)
         ) return true;
-        disconnect(socket);
+        disconnect(socket, "string sending failed");
         return false;
     }
 
     string recv(int socket, int flags = 0) {
         size_t size;
         if (recv(socket, (char*)&size, sizeof(size), flags) != sizeof(size)) {
-            disconnect(socket);
+            disconnect(socket, "string size recieving failed");
             return "";
         }
         char buff[size + 1] = {0};
         if (recv(socket, buff, size, flags) != size) {
-            disconnect(socket);
+            disconnect(socket, "string contect recieving failed");
             return "";
         }
         return buff;
@@ -160,14 +162,15 @@ public:
             send(socket, (const char*)&size, sizeof(size), flags) &&
             send(socket, (const char*)data, size * sizeof(T), flags)
         ) return true;
-        disconnect(socket);
+        disconnect(socket, "vector sending failed");
         return false;
     }
 
     template<typename T>
     vector<T> recv_vector(int socket, int flags = 0) {
         size_t size;
-        if (recv(socket, (char*)&size, sizeof(size), flags) != sizeof(size)) disconnect(socket);
+        if (recv(socket, (char*)&size, sizeof(size), flags) != sizeof(size)) 
+            disconnect(socket, "vector size recieving failed");
         else {
             T buff[size];
             size_t fullsize = sizeof(T) * size;
@@ -175,7 +178,7 @@ public:
                 vector<T> data(buff, buff + size);
                 return data;
             }
-            disconnect(socket);
+            disconnect(socket, "vector data recieving failed");
         }
         return {};
     }
@@ -220,7 +223,7 @@ public:
         return remoteSocket;
     }
 
-    int poll(int timeout = 100) {
+    int poll(int timeout = DEFAULT_POLL_TIMEOUT) {
         int p = TCPSocket::poll(timeout);
         if (p) accept();
         return p;
