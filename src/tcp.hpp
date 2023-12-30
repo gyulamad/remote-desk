@@ -58,7 +58,7 @@ public:
         return socks;
     }
 
-    int poll(int timeout = 100) {
+    int poll(int timeout = 1) {
         int result = ::poll(pollfds.data(), pollfds.size(), timeout);
         if (result < 0) close();
         return result;
