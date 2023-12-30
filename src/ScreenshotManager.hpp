@@ -84,6 +84,16 @@ public:
         return changedRectangles;
     }
 
+    int getScreenWidth() {
+        int screen = DefaultScreen(display);
+        return DisplayWidth(display, screen);
+    }
+
+    int getScreenHeight() {
+        int screen = DefaultScreen(display);
+        return DisplayHeight(display, screen);
+    }
+
 private:
     
     // Function to capture an image of a small area

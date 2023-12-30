@@ -5,6 +5,9 @@
 #include <cstring>
 #include <vector>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
+
+#include "tcp.hpp"
 
 using namespace std;
 
@@ -17,6 +20,26 @@ protected:
 public:
     struct RGB { 
         uint8_t r, g, b; 
+
+        // Assignment operator
+        RGB& operator=(const RGB& other) {
+            if (this != &other) {
+                r = other.r;
+                g = other.g;
+                b = other.b;
+            }
+            return *this;
+        }
+
+        // Equality operator
+        bool operator==(const RGB& other) const {
+            return (r == other.r) && (g == other.g) && (b == other.b);
+        }
+
+        // Inequality operator
+        bool operator!=(const RGB& other) const {
+            return !(*this == other);
+        }
     };
     struct RGB565 {
         uint16_t color = 0;
@@ -101,6 +124,42 @@ public:
     vector<ReducedRGB> pixels;
     // int incorrupted = 0;
 
+    ChangedRectangle resize(int originWidth, int originHeight, int clientWidth, int clientHeight) const {
+        ChangedRectangle resized;
+
+        double scale = clientWidth > clientHeight
+            ? (double)clientWidth / originWidth
+            : (double)clientHeight / originHeight; // TODO: portrait?
+            
+        // Calculate the new dimensions
+        resized.width = static_cast<int>(width * scale) + 1;
+        resized.height = static_cast<int>(height * scale) + 1;
+
+        // Center the resized image in the client window
+        resized.left = static_cast<int>(left * scale);
+        resized.top = static_cast<int>(top * scale);
+
+         // Resize the pixels without interpolation
+        // resized.pixels.resize(resized.width * resized.height);
+        resized.pixels.clear();
+
+        
+        for (int x = 0; x < resized.width; x++) {
+            for (int y = 0; y < resized.height; y++) {
+                int origX = (int)((double)(x) / scale);
+                int origY = (int)((double)(y) / scale);
+
+                // cout << "x:y " << x << ":" << y << " =>  orig " << origX << ":" << origY << endl;
+
+                // resized.pixels[y + resized.width * x] = pixels[origY + originWidth * origX];
+                size_t origIndex = origY + width * origX;
+                resized.pixels.push_back(pixels.at(origIndex));
+            }
+        }
+
+        return resized;
+    }
+
     bool send(TCPSocket& tcp, int sock) const {
         vector<int> pos = { width, height, left, top };
         return 
@@ -139,8 +198,8 @@ public:
                 color.g = (pixel >> 8) & 0xFF;
                 color.b = pixel & 0xFF;
                 // Convert to ReducedRGB and store in the vector
-                ReducedRGB color565(color.r, color.g, color.b);
-                pixels.push_back(color565);
+                ReducedRGB reducedColor(color.r, color.g, color.b);
+                pixels.push_back(reducedColor);
             }
         }
 

@@ -39,7 +39,7 @@ private:
         int screen = DefaultScreen(display);
 
         window = XCreateSimpleWindow(display, RootWindow(display, screen),
-                                      10, 10, 400, 300, 1,
+                                      10, 10, 800, 600, 1,
                                       BlackPixel(display, screen),
                                       WhitePixel(display, screen));
 
@@ -108,28 +108,36 @@ protected:
         XWindowAttributes windowAttrs;
         XGetWindowAttributes(display, window, &windowAttrs);
 
-        if (rect.left < 0 || rect.top < 0 ||
-            rect.left + rect.width + windowAttrs.border_width * 2 + 10 >= windowAttrs.width ||
-            rect.top + rect.height + windowAttrs.border_width * 2 + 10 >= windowAttrs.height) {
-            //cout << "Specified region is outside the bounds of the window" << endl;
-            return false;
-        }
+        // if (rect.left < 0 || rect.top < 0 ||
+        //     rect.left + rect.width + windowAttrs.border_width >= windowAttrs.width ||
+        //     rect.top + rect.height + windowAttrs.border_width >= windowAttrs.height) {
+        //     //cout << "Specified region is outside the bounds of the window" << endl;
+        //     return false;
+        // }
 
         // Display the ChangedRectangle pixels on the window
 
         // std::vector<XPoint> points;
         // std::vector<unsigned long> colors;
 
+        size_t pixsize = rect.pixels.size();
+        ChangedRectangle::RGB prevColor = {0, 0, 0}, color = prevColor;
+        XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
         for (short y = rect.top; y < rect.top + rect.height; ++y) {
             for (short x = rect.left; x < rect.left + rect.width; ++x) {
                 int pixelIndex = (y - rect.top) * rect.width + (x - rect.left);
-                if (rect.pixels.size() <= pixelIndex) break;
-                const ChangedRectangle::ReducedRGB& pixelColor = rect.pixels[pixelIndex];
+                if (pixsize <= pixelIndex) break;
+                // const ChangedRectangle::ReducedRGB& pixelColor = rect.pixels[pixelIndex];
                 // XPoint point = {x, y};
                 // points.push_back(point);
                 // colors.push_back((pixelColor.r << 16) | (pixelColor.g << 8) | pixelColor.b);
-                ChangedRectangle::RGB color = pixelColor.toRGB();
-                putPixel(x, y, color.r, color.g, color.b);
+                ChangedRectangle::RGB color = rect.pixels[pixelIndex].toRGB();
+                //putPixel(x, y, color.r, color.g, color.b);
+                if (color != prevColor) {
+                    XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
+                    prevColor = color;
+                }
+                XDrawPoint(display, window, gc, x, y);
             }
         }
         // if (!points.empty()) {
@@ -141,10 +149,10 @@ protected:
         return true;
     }
 
-    void putPixel(int x, int y, uint8_t r, uint8_t g, uint8_t b) {
-        XSetForeground(display, gc, (r << 16) | (g << 8) | b);
-        XDrawPoint(display, window, gc, x, y);
-    }
+    // void putPixel(int x, int y, uint8_t r, uint8_t g, uint8_t b) {
+    //     XSetForeground(display, gc, (r << 16) | (g << 8) | b);
+    //     XDrawPoint(display, window, gc, x, y);
+    // }
 
 public:
     DesktopClient(const string& ipaddr, uint16_t port): 

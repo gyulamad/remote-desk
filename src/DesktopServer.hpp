@@ -58,7 +58,11 @@ protected:
 
     // vector<string> clientAddresses;
     // bool clientJoined = false;
-    ScreenshotManager screenshotManager = ScreenshotManager(200, 150);
+    ScreenshotManager screenshotManager = ScreenshotManager(100, 100);
+    int originWidth = screenshotManager.getScreenWidth();
+    int originHeight = screenshotManager.getScreenHeight();
+    int clientWidth = 800; // TODO: client have to send it..
+    int clientHeight = 600; // ...it is now only the assumed default.
     EventTrigger eventTrigger;
     TCPServer& server;
     long long captureNextAt = 0;
@@ -97,13 +101,19 @@ public:
             if (now >= captureNextAt) {
                 cout << "Capture screen" << endl;
                 const vector<ChangedRectangle>& changes = screenshotManager.captureChanges();
+                int originWidth = screenshotManager.getScreenWidth();
+                int originHeight = screenshotManager.getScreenHeight();
 
                 for (int sock: server.sockets(true)) {
                     size_t size = changes.size();
                     server.send(sock, (const char*)&size, sizeof(size), 0);
                     for (const ChangedRectangle& change: changes) {
                         //usleep(1);
-                        if (!change.send(server, sock)) {
+                        ChangedRectangle resized = change.resize(
+                            originWidth, originHeight, 
+                            clientWidth, clientHeight
+                        );
+                        if (!resized.send(server, sock)) {
                             cout << "Image sending failed" << endl;
                             break;
                         }
