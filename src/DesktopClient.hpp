@@ -11,7 +11,7 @@
 #include <X11/Xutil.h>
 
 #include "tcp.hpp"
-#include "ChangedRectangle.hpp"
+// #include "ChangedRectangle.hpp"
 
 using namespace std;
 
@@ -95,7 +95,7 @@ private:
         cout << "Mouse moved: (" << motionEvent.x << ", " << motionEvent.y << ")" << endl;
     }
 
-    vector<RGBPACK_CLASS> displayCache;
+    // vector<RGBPACK_CLASS> displayCache;
     int windowWidth = 0, windowHeight = 0;
     void handleResize(const XConfigureEvent& configureEvent) {
         // Stub method for window resize event handling
@@ -109,8 +109,8 @@ private:
                 + to_string(configureEvent.width) + "," 
                 + to_string(configureEvent.height)
             );
-            displayCache.resize(windowWidth * windowHeight);
-            for (RGBPACK_CLASS& dc: displayCache) dc.color = 0;
+            // displayCache.resize(windowWidth * windowHeight);
+            // for (RGBPACK_CLASS& dc: displayCache) dc.color = 0;
         }
     }
 
@@ -129,33 +129,33 @@ private:
 
 protected:
 
-    bool displayChangedRectangle(const ChangedRectangle& rect) {
+    // bool displayChangedRectangle(const ChangedRectangle& rect) {
 
-        size_t pixsize = rect.pixels.size();
-        RGB24 prevColor, color = prevColor;
-        // XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
-        size_t ymax = rect.top + rect.height;
-        size_t xmax = rect.left + rect.width;
+    //     size_t pixsize = rect.pixels.size();
+    //     RGB24 prevColor, color = prevColor;
+    //     // XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
+    //     size_t ymax = rect.top + rect.height;
+    //     size_t xmax = rect.left + rect.width;
 
-        for (size_t y = rect.top; y < ymax; y++)
-            for (size_t x = rect.left; x < xmax; x++) {
-                int pixelIndex = (y - rect.top) * rect.width + (x - rect.left);
-                if (pixsize <= pixelIndex) break;
+    //     for (size_t y = rect.top; y < ymax; y++)
+    //         for (size_t x = rect.left; x < xmax; x++) {
+    //             int pixelIndex = (y - rect.top) * rect.width + (x - rect.left);
+    //             if (pixsize <= pixelIndex) break;
 
-                size_t displayIndex = x + y * windowWidth;
-                if (displayCache[displayIndex].color == rect.pixels[pixelIndex].color) continue;
-                displayCache[displayIndex] = rect.pixels[pixelIndex];
+    //             size_t displayIndex = x + y * windowWidth;
+    //             if (displayCache[displayIndex].color == rect.pixels[pixelIndex].color) continue;
+    //             displayCache[displayIndex] = rect.pixels[pixelIndex];
 
-                RGB24 color = rect.pixels[pixelIndex].toRGB24();
-                if (!color.isAlmostSame(prevColor)) {
-                    XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
-                    prevColor = color;
-                }
-                XDrawPoint(display, window, gc, x, y);
-            }
+    //             RGB24 color = rect.pixels[pixelIndex].toRGB24();
+    //             if (!color.isAlmostSame(prevColor)) {
+    //                 XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
+    //                 prevColor = color;
+    //             }
+    //             XDrawPoint(display, window, gc, x, y);
+    //         }
 
-        return true;
-    }
+    //     return true;
+    // }
 
 public:
     DesktopClient(const string& ipaddr, uint16_t port): 
@@ -178,27 +178,27 @@ public:
             return;
         }
 
-        vector<ChangedRectangle> rects;
+        // vector<ChangedRectangle> rects;
         while (true) {
 
             // Check for screen changes from the server
             while (client.poll()) {
                 for (int socket: client.sockets()) {
-                    size_t changes;
-                    if (-1 == client.recv(socket, (char*)&changes, sizeof(changes), 0)) {
-                        client.disconnect(socket, "unable to recieve changes count");
-                        break;
-                    }
-                    rects.resize(changes);
-                    for (size_t i = 0; i < changes; i++) {
-                        // ChangedRectangle rect;
-                        if (-1 == rects[i].recv(client, socket)) {
-                            client.disconnect(socket, "unable to recieve change");
-                            break;
-                        } 
-                        // else
-                        //     rects[i] = rect;
-                    }
+                    // size_t changes;
+                    // if (-1 == client.recv(socket, (char*)&changes, sizeof(changes), 0)) {
+                    //     client.disconnect(socket, "unable to recieve changes count");
+                    //     break;
+                    // }
+                    // rects.resize(changes);
+                    // for (size_t i = 0; i < changes; i++) {
+                    //     // ChangedRectangle rect;
+                    //     if (-1 == rects[i].recv(client, socket)) {
+                    //         client.disconnect(socket, "unable to recieve change");
+                    //         break;
+                    //     } 
+                    //     // else
+                    //     //     rects[i] = rect;
+                    // }
                     // update the server about our state
                     sendUpdates(socket);
                     break; // we are connecting to only one server
@@ -206,10 +206,10 @@ public:
             }
 
 
-            // show changes if anything left to see..
-            for (const ChangedRectangle& rect: rects) 
-                displayChangedRectangle(rect);
-            //rects.clear();
+            // // show changes if anything left to see..
+            // for (const ChangedRectangle& rect: rects) 
+            //     displayChangedRectangle(rect);
+            // //rects.clear();
 
 
             if (!XPending(display)) continue;

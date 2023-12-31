@@ -11,8 +11,8 @@
 
 using namespace std;
 
-#define RGBPACK_CLASS   RGB565
-#define RGBPACK_TYPE    uint16_t
+// #define RGBPACK_CLASS   RGB565
+// #define RGBPACK_TYPE    uint16_t
 #define RGB_ACCURACY    5
 
 class RGB24 {
