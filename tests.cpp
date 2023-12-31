@@ -6,6 +6,7 @@
 #include "src/DesktopClient.hpp"
 // #include "src/AsioCommunicator.hpp"
 #include "src/tcp.hpp"
+#include "src/ChangedRectangle.hpp"
 
 
 int main() {
@@ -13,6 +14,14 @@ int main() {
     try {
         // ---------- RGB packing --------------
 
+        RGB565 rpixel1, rpixel2;
+        rpixel1 = rpixel2;
+
+        vector<RGB565> pixels1;
+        vector<RGB565> pixels2;
+        pixels2.push_back(RGB565());
+        pixels2.push_back(RGB565());
+        pixels1 = pixels2;
         
 
         // ---------------- tcp -----------------

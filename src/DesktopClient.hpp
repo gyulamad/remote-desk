@@ -127,18 +127,23 @@ private:
 
 protected:
 
+    vector<RGBPACK_CLASS> displayBuffer;
     bool displayChangedRectangle(const ChangedRectangle& rect) {
 
         size_t pixsize = rect.pixels.size();
-        ChangedRectangle::RGB prevColor = {0, 0, 0}, color = prevColor;
-        XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
-        short ymax = rect.top + rect.height;
-        short xmax = rect.left + rect.width;
-        for (short y = rect.top; y < ymax; ++y)
-            for (short x = rect.left; x < xmax; ++x) {
+        RGB24 prevColor, color = prevColor;
+        // XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
+        size_t ymax = rect.top + rect.height;
+        size_t xmax = rect.left + rect.width;
+        // displayBuffer.resize(max(displayBuffer.size(), xmax + ymax * windowWidth));
+        for (size_t y = rect.top; y < ymax; y++)
+            for (size_t x = rect.left; x < xmax; x++) {
                 int pixelIndex = (y - rect.top) * rect.width + (x - rect.left);
                 if (pixsize <= pixelIndex) break;
-                ChangedRectangle::RGB color = rect.pixels[pixelIndex].toRGB();
+                // size_t displayIndex = x + y * windowWidth;
+                // if (displayBuffer[displayIndex].color == rect.pixels[pixelIndex].color) continue;
+                // displayBuffer[displayIndex] = rect.pixels[pixelIndex];
+                RGB24 color = rect.pixels[pixelIndex].toRGB24();
                 if (color != prevColor) {
                     XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
                     prevColor = color;
@@ -183,11 +188,13 @@ public:
                     }
                     rects.resize(changes);
                     for (size_t i = 0; i < changes; i++) {
-                        ChangedRectangle rect;
-                        if (-1 == rect.recv(client, socket)) {
+                        // ChangedRectangle rect;
+                        if (-1 == rects[i].recv(client, socket)) {
                             client.disconnect(socket, "unable to recieve change");
                             break;
-                        } else rects[i] = rect;
+                        } 
+                        // else
+                        //     rects[i] = rect;
                     }
                     // update the server about our state
                     sendUpdates(socket);
@@ -197,8 +204,9 @@ public:
 
 
             // show changes if anything left to see..
-            for (const ChangedRectangle& rect: rects) displayChangedRectangle(rect);
-            rects.clear();
+            for (const ChangedRectangle& rect: rects) 
+                displayChangedRectangle(rect);
+            //rects.clear();
 
 
             if (!XPending(display)) continue;

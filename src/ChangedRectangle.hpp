@@ -11,6 +11,218 @@
 
 using namespace std;
 
+#define RGBPACK_CLASS   RGB565
+#define RGBPACK_TYPE    uint16_t
+
+class RGB24 {
+public: 
+    uint8_t r = 0, g = 0, b = 0;
+
+    RGB24() {}
+
+    RGB24(uint8_t r, uint8_t g, uint8_t b):
+        r(r), g(g), b(b)
+    {}
+
+    virtual ~RGB24() {}
+
+    // // Assignment operator
+    // RGB24& operator=(const RGB24& other) {
+    //     if (this != &other) {
+    //         r = other.r;
+    //         g = other.g;
+    //         b = other.b;
+    //     }
+    //     return *this;
+    // }
+
+    // Equality operator
+    bool operator==(const RGB24& other) const {
+        return (r == other.r) && (g == other.g) && (b == other.b);
+    }
+
+    bool operator!=(const RGB24& other) const {
+        return !(*this == other);
+    }
+};
+
+// template<typename T>
+// class RGBPacked {
+// protected:
+//     T color;
+
+// public:
+
+// //     RGBPacked() {}
+
+//     RGBPacked(T color = 0): color(color) {}
+
+//     virtual ~RGBPacked() {}
+
+// //     // Assignment operator
+// //     RGBPacked<T>& operator=(const RGBPacked<T>& other) {
+// //         this->color = other.color;
+// //         return *this;
+// //     }
+    
+//     // Equality operator
+//     bool operator==(const RGBPacked<T>& other) const {
+//         return this->color == other.color;
+//     }
+    
+// //     bool operator!=(const RGBPacked<T>& other) const {
+// //         return this->color != other.color;
+// //     }
+
+//     virtual RGB24 toRGB24() const {
+//         throw runtime_error("Needs to be implemented");
+//     }
+// };
+
+class RGB565 {
+public:
+    uint16_t color = 0;
+
+    RGB565() {}
+
+    RGB565(uint8_t r, uint8_t g, uint8_t b): 
+        color(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
+    {}
+
+    virtual ~RGB565() {}    
+    
+    // // Assignment operator
+    // RGB565& operator=(const RGB565& other) {
+    //     this->color = other.color;
+    //     return *this;
+    // }
+    
+    // // Equality operator
+    // virtual bool operator==(const RGB565& other) const {
+    //     return color == other.color;
+    // }
+
+    RGB24 toRGB24() const {
+        RGB24 rgb(
+            ((color >> 11) & 0x1F) << 3,
+            ((color >> 5) & 0x3F) << 2,
+            (color & 0x1F) << 3
+        );
+        return rgb;
+    }
+};
+
+class RGB323 {
+protected:
+    uint8_t color = 0;
+
+public:
+
+    RGB323() {}
+
+    RGB323(uint8_t r, uint8_t g, uint8_t b):
+        color(((r >> 5) << 5) | ((g >> 6) << 3) | (b >> 5))
+    {}
+
+    virtual ~RGB323() {}
+    
+    // // Assignment operator
+    // virtual RGBAbstract& operator=(const RGBAbstract& other) override {
+    //     return RGBPacked::operator=(other);
+    // }
+    
+    // // Equality operator
+    // virtual bool operator==(const RGBAbstract& other) const override {
+    //     return RGBPacked::operator==(other);
+    // }
+
+    RGB24 toRGB24() const {
+        RGB24 rgb(
+            ((color >> 5) & 0x07) << 5,
+            ((color >> 3) & 0x03) << 6,
+            (color & 0x07) << 5
+        );
+        return rgb;
+    }
+};
+
+class RGBMono {
+protected:
+    uint8_t color = 0;
+
+public:
+
+    RGBMono() {}
+
+    RGBMono(uint8_t r = 0, uint8_t g = 0, uint8_t b = 0): 
+        color((r + g + b) / 3)
+    {}
+
+    virtual ~RGBMono() {}
+    
+    // // Assignment operator
+    // virtual RGBAbstract& operator=(const RGBAbstract& other) override {
+    //     return RGBPacked::operator=(other);
+    // }
+    
+    // // Equality operator
+    // virtual bool operator==(const RGBAbstract& other) const override {
+    //     return RGBPacked::operator==(other);
+    // }
+
+    RGB24 toRGB24() const {
+        RGB24 rgb (
+            color,
+            color,
+            color
+        );
+        return rgb;
+    }
+};
+
+class RGB111S {
+protected:
+    uint8_t color = 0;
+
+public:
+
+    RGB111S() {}
+
+    RGB111S(uint8_t r, uint8_t g, uint8_t b) {
+        uint8_t s = (r + g + b) / 3;
+        uint8_t f = 2;
+        uint8_t r_ = (r > g * f && r > b * f) ? 0x80 : 0;
+        uint8_t g_ = (g > r * f && g > b * f) ? 0x40 : 0;
+        uint8_t b_ = (b > r * f && b > g * f) ? 0x20 : 0;
+        s = (s >> 3);
+        color = r_ | g_ | b_ | s;
+    }
+
+    virtual ~RGB111S() {}
+    
+    // // Assignment operator
+    // virtual RGBAbstract& operator=(const RGBAbstract& other) override {
+    //     return RGBPacked::operator=(other);
+    // }
+    
+    // // Equality operator
+    // virtual bool operator==(const RGBAbstract& other) const override {
+    //     return RGBPacked::operator==(other);
+    // }
+
+    RGB24 toRGB24() const {
+        uint8_t s = (color & 0x1f) * 8;
+        uint8_t f = 4;
+        RGB24 rgb(
+            s + ((color & 0x80) ? 0xA0 : 0x0A) / f,
+            s + ((color & 0x40) ? 0xA0 : 0x0A) / f,
+            s + ((color & 0x20) ? 0xA0 : 0x0A) / f
+        );
+        return rgb;
+    }
+};
+
+
 class ChangedRectangle {
 protected:
     void validatePixelsSize() const {
@@ -18,110 +230,34 @@ protected:
             throw runtime_error("Incorrupted image size (" + to_string(pixels.size()) + " != " + to_string(width * height)  + ")");
     }
 public:
-    struct RGB { 
-        uint8_t r, g, b; 
-
-        // Assignment operator
-        RGB& operator=(const RGB& other) {
-            if (this != &other) {
-                r = other.r;
-                g = other.g;
-                b = other.b;
-            }
-            return *this;
-        }
-
-        // Equality operator
-        bool operator==(const RGB& other) const {
-            return (r == other.r) && (g == other.g) && (b == other.b);
-        }
-
-        // Inequality operator
-        bool operator!=(const RGB& other) const {
-            return !(*this == other);
-        }
-    };
-    struct RGB565 {
-        uint16_t color = 0;
-
-        RGB565() {}
-
-        RGB565(uint8_t r, uint8_t g, uint8_t b) {
-            color = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
-        }
-
-        RGB toRGB() const {
-            RGB rgb;
-            rgb.r = ((color >> 11) & 0x1F) << 3;
-            rgb.g = ((color >> 5) & 0x3F) << 2;
-            rgb.b = (color & 0x1F) << 3;
-            return rgb;
-        }
-    };
-    struct RGB323 {
-        uint8_t color;
-
-        RGB323() {}
-
-        RGB323(uint8_t r, uint8_t g, uint8_t b) {
-            color = ((r >> 5) << 5) | ((g >> 6) << 3) | (b >> 5);
-        }
-
-        RGB toRGB() const {
-            RGB rgb;
-            rgb.r = ((color >> 5) & 0x07) << 5;
-            rgb.g = ((color >> 3) & 0x03) << 6;
-            rgb.b = (color & 0x07) << 5;
-            return rgb;
-        }
-    };
-    struct RGBMono {
-        uint8_t color;
-
-        RGBMono() {}
-
-        RGBMono(uint8_t r, uint8_t g, uint8_t b) {
-            color = (r + g + b) / 3;
-        }
-
-        RGB toRGB() const {
-            RGB rgb;
-            rgb.r = color;
-            rgb.g = color;
-            rgb.b = color;
-            return rgb;
-        }
-    };
-    struct RGB111S {
-        uint8_t color;
-
-        RGB111S() {}
-
-        RGB111S(uint8_t r, uint8_t g, uint8_t b) {
-            uint8_t s = (r + g + b) / 3;
-            uint8_t f = 2;
-            uint8_t r_ = (r > g * f && r > b * f) ? 0x80 : 0;
-            uint8_t g_ = (g > r * f && g > b * f) ? 0x40 : 0;
-            uint8_t b_ = (b > r * f && b > g * f) ? 0x20 : 0;
-            s = (s >> 3);
-            color = r_ | g_ | b_ | s;
-        }
-
-        RGB toRGB() const {
-            RGB rgb;
-            uint8_t s = (color & 0x1f) * 8;
-            uint8_t f = 4;
-            rgb.r = s + ((color & 0x80) ? 0xA0 : 0x0A) / f;
-            rgb.g = s + ((color & 0x40) ? 0xA0 : 0x0A) / f;
-            rgb.b = s + ((color & 0x20) ? 0xA0 : 0x0A) / f;
-            return rgb;
-        }
-    };
-
-#define ReducedRGB RGB565
 
     int width, height, left, top;
-    vector<ReducedRGB> pixels;
+    vector<RGBPACK_CLASS> pixels;
+
+    // // Assignment operator
+    // ChangedRectangle& operator=(const ChangedRectangle& other) {
+    //     if (this != &other) { // self-assignment check
+    //         width = other.width;
+    //         height = other.height;
+    //         left = other.left;
+    //         top = other.top;
+
+    //         size_t size = other.pixels.size();
+    //         pixels.resize(size);
+    //         for (size_t i = 0; i < size; i++)
+    //             pixels[i] = other.pixels[i]; // This is a vector, so it performs a deep copy
+    //     }
+    //     return *this;
+    // }
+
+    // // Provide equality operator for ChangedRectangle if needed
+    // bool operator==(const ChangedRectangle& lhs, const ChangedRectangle& rhs) {
+    //     return lhs.width == rhs.width &&
+    //         lhs.height == rhs.height &&
+    //         lhs.left == rhs.left &&
+    //         lhs.top == rhs.top &&
+    //         lhs.pixels == rhs.pixels;
+    // }
 
     ChangedRectangle resize(int originWidth, int originHeight, int clientWidth, int clientHeight) const {
         ChangedRectangle resized;
@@ -159,7 +295,14 @@ public:
         vector<int> pos = { width, height, left, top };
         return 
             tcp.send_vector<int>(socket, pos) &&
-            tcp.send_vector<ReducedRGB>(socket, pixels);
+            send_pixels(tcp, socket);
+    }
+
+    bool send_pixels(TCPSocket& tcp, int socket) const {
+        size_t size = pixels.size();
+        vector<RGBPACK_TYPE> raw(size);
+        for (size_t i = 0; i < size; i++) raw[i] = pixels[i].color;
+        return tcp.send_vector<RGBPACK_TYPE>(socket, raw);
     }
 
     bool recv(TCPSocket& tcp, int socket) {
@@ -169,8 +312,15 @@ public:
         height = pos.at(1);
         left = pos.at(2);
         top = pos.at(3);
-        pixels = tcp.recv_vector<ReducedRGB>(socket);
-        return pixels.size() == width * height;
+        return recv_pixels(tcp, socket, width * height);
+    }
+
+    bool recv_pixels(TCPSocket& tcp, int socket, size_t size) {
+        vector<RGBPACK_TYPE> raw = tcp.recv_vector<RGBPACK_TYPE>(socket);
+        if (raw.size() != size) return false;
+        pixels.resize(size);
+        for (size_t i = 0; i < size; i++) pixels[i].color = raw[i];
+        return true;
     }
 
     void fromXImage(const XImage& ximage) {
@@ -188,12 +338,12 @@ public:
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
                 unsigned long pixel = XGetPixel(const_cast<XImage*>(&ximage), x, y);
-                RGB color;
+                RGB24 color;
                 color.r = (pixel >> 16) & 0xFF;
                 color.g = (pixel >> 8) & 0xFF;
                 color.b = pixel & 0xFF;
-                // Convert to ReducedRGB and store in the vector
-                ReducedRGB reducedColor(color.r, color.g, color.b);
+                // Convert to RGBPACK_CLASS and store in the vector
+                RGBPACK_CLASS reducedColor(color.r, color.g, color.b);
                 pixels[x + y * width] = reducedColor;
             }
         }

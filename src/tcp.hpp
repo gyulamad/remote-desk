@@ -43,7 +43,7 @@ protected:
     }
 
 public:
-    const size_t MAX_BUFFER_SIZE = 1023;
+    const size_t MAX_BUFFER_SIZE = 64000;
     static const int DEFAULT_POLL_TIMEOUT = 1;
 
     virtual ~TCPSocket() {
@@ -66,13 +66,13 @@ public:
     }
 
     bool disconnect(int socket, const string& reason) {
+        cerr << "Disconnect socket " << socket << ", reason: " << (reason.empty() ? "Unknown" : reason) << endl;
         size_t size = pollfds.size();
         size_t i = 0;
         for (; i < size; i++) if (pollfds[i].fd == socket) break;
         if (size == i) return false;
         ::close(socket);
         pollfds.erase(pollfds.begin() + i);
-        cerr << "Disconnect socket " << socket << ", reason: " << (reason.empty() ? "Unknown" : reason) << endl;
         return true;
     }
 
@@ -156,31 +156,50 @@ public:
 
     template<typename T>
     bool send_vector(int socket, const vector<T>& elems, int flags = 0) {
+
         size_t size = elems.size();
-        const void* data = elems.data();
-        if (
-            send(socket, (const char*)&size, sizeof(size), flags) &&
-            send(socket, (const char*)data, size * sizeof(T), flags)
-        ) return true;
-        disconnect(socket, "vector sending failed");
-        return false;
+        if (!send(socket, (const char*)&size, sizeof(size), flags)) {
+            disconnect(socket, "vector size sending failed");
+            return false;
+        }
+
+        if (!send(socket, (const char*)elems.data(), sizeof(T) * size, flags)) {
+            disconnect(socket, "vector data sending failed");
+            return false;
+        }
+        // for (const T& elem: elems) 
+        //     if (!send(socket, (const char*)&elem, sizeof(elem), flags)) {
+        //         disconnect(socket, "vector sending failed");
+        //         return false;
+        //     }
+
+        return true;
     }
 
     template<typename T>
     vector<T> recv_vector(int socket, int flags = 0) {
+
         size_t size;
-        if (recv(socket, (char*)&size, sizeof(size), flags) != sizeof(size)) 
+        if (recv(socket, (char*)&size, sizeof(size), flags) != sizeof(size)) {
             disconnect(socket, "vector size recieving failed");
-        else {
-            T buff[size];
-            size_t fullsize = sizeof(T) * size;
-            if (recv(socket, (char*)buff, fullsize, flags) == fullsize) {
-                vector<T> data(buff, buff + size);
-                return data;
-            }
-            disconnect(socket, "vector data recieving failed");
+            return {};
         }
-        return {};
+    
+        vector<T> elems; 
+        elems.resize(size);
+
+        size_t fullsize = sizeof(T) * size;
+        if (recv(socket, (char*)elems.data(), fullsize, flags) != fullsize) {
+            disconnect(socket, "vector data recieving failed");
+            return {};
+        }
+        // for (T& elem: elems)
+        //     if (recv(socket, (char*)&elem, sizeof(elem), flags) != sizeof(elem)) {
+        //         disconnect(socket, "vector recieving failed");
+        //         return {};
+        //     }
+
+        return elems;
     }
     
 };
