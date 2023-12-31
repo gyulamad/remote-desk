@@ -95,6 +95,7 @@ private:
         cout << "Mouse moved: (" << motionEvent.x << ", " << motionEvent.y << ")" << endl;
     }
 
+    vector<RGBPACK_CLASS> displayCache;
     int windowWidth = 0, windowHeight = 0;
     void handleResize(const XConfigureEvent& configureEvent) {
         // Stub method for window resize event handling
@@ -108,7 +109,8 @@ private:
                 + to_string(configureEvent.width) + "," 
                 + to_string(configureEvent.height)
             );
-            
+            displayCache.resize(windowWidth * windowHeight);
+            for (RGBPACK_CLASS& dc: displayCache) dc.color = 0;
         }
     }
 
@@ -127,7 +129,6 @@ private:
 
 protected:
 
-    vector<RGBPACK_CLASS> displayBuffer;
     bool displayChangedRectangle(const ChangedRectangle& rect) {
 
         size_t pixsize = rect.pixels.size();
@@ -135,16 +136,18 @@ protected:
         // XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
         size_t ymax = rect.top + rect.height;
         size_t xmax = rect.left + rect.width;
-        // displayBuffer.resize(max(displayBuffer.size(), xmax + ymax * windowWidth));
+
         for (size_t y = rect.top; y < ymax; y++)
             for (size_t x = rect.left; x < xmax; x++) {
                 int pixelIndex = (y - rect.top) * rect.width + (x - rect.left);
                 if (pixsize <= pixelIndex) break;
-                // size_t displayIndex = x + y * windowWidth;
-                // if (displayBuffer[displayIndex].color == rect.pixels[pixelIndex].color) continue;
-                // displayBuffer[displayIndex] = rect.pixels[pixelIndex];
+
+                size_t displayIndex = x + y * windowWidth;
+                if (displayCache[displayIndex].color == rect.pixels[pixelIndex].color) continue;
+                displayCache[displayIndex] = rect.pixels[pixelIndex];
+
                 RGB24 color = rect.pixels[pixelIndex].toRGB24();
-                if (color != prevColor) {
+                if (!color.isAlmostSame(prevColor)) {
                     XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
                     prevColor = color;
                 }

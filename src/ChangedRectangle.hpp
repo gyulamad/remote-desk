@@ -13,6 +13,7 @@ using namespace std;
 
 #define RGBPACK_CLASS   RGB565
 #define RGBPACK_TYPE    uint16_t
+#define RGB_ACCURACY    5
 
 class RGB24 {
 public: 
@@ -37,12 +38,19 @@ public:
     // }
 
     // Equality operator
-    bool operator==(const RGB24& other) const {
-        return (r == other.r) && (g == other.g) && (b == other.b);
-    }
+    // bool operator==(const RGB24& other) const {
+    //     return (r == other.r) && (g == other.g) && (b == other.b);
+    // }
 
-    bool operator!=(const RGB24& other) const {
-        return !(*this == other);
+    // bool operator!=(const RGB24& other) const {
+    //     return !(*this == other);
+    // }
+
+    bool isAlmostSame(const RGB24& other, int accuracy = RGB_ACCURACY) const {
+        if (abs(r - other.r) > accuracy) return false;
+        if (abs(g - other.g) > accuracy) return false;
+        if (abs(b - other.b) > accuracy) return false;
+        return true;
     }
 };
 
@@ -89,7 +97,7 @@ public:
         color(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
     {}
 
-    virtual ~RGB565() {}    
+    virtual ~RGB565() {}   
     
     // // Assignment operator
     // RGB565& operator=(const RGB565& other) {
