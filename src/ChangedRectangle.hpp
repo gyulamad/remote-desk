@@ -280,11 +280,11 @@ public:
         resized.width = (int)(width * scale) + 1;
         resized.height = (int)(height * scale) + 1;
 
-        // Center the resized image in the client window
+        // Positioning the resized image in the client window
         resized.left = (int)(left * scale);
         resized.top = (int)(top * scale);
 
-         // Resize the pixels count
+        // Resize the pixels count
         resized.pixels.resize(resized.width * resized.height);
         
         for (int x = 0; x < resized.width; x++) {

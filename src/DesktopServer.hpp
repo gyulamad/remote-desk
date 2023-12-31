@@ -70,7 +70,7 @@ protected:
 
     // vector<string> clientAddresses;
     // bool clientJoined = false;
-    ScreenshotManager screenshotManager = ScreenshotManager(4, 4);
+    ScreenshotManager screenshotManager = ScreenshotManager(10, 6);
     int originWidth = screenshotManager.getScreenWidth();
     int originHeight = screenshotManager.getScreenHeight();
     int clientWidth = 800; // client have to send it to update.
