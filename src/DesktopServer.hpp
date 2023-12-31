@@ -78,7 +78,7 @@ protected:
     EventTrigger eventTrigger;
     TCPServer& server;
     long long captureNextAt = 0;
-    long long captureFreq = 20;
+    long long captureFreq = 100;
 
     bool resizeAndSendRectangles(int socket, const vector<ChangedRectangle>& rects) const {
         size_t size = rects.size();
@@ -127,6 +127,7 @@ public:
     void runEventLoop() {
         vector<ChangedRectangle> changes;
         while (true) {
+            
             // server polling only to accept new client connections,
             // (main poll in client side)
             while (server.poll()); 

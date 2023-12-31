@@ -5,7 +5,7 @@ int main() {
         const uint16_t port = 9876;
         TCPServer server;
         server.listen(port);
-        cout << "server listening on port: " << port << endl;
+        cout << "Server is listening on port: " << port << endl;
         DesktopServer desktopServer(server);
         desktopServer.runEventLoop();
     } catch (exception &e) {
