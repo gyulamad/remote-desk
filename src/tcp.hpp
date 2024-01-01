@@ -87,7 +87,6 @@ public:
         // send in chunks if the message is too long
         if (size > MAX_BUFFER_SIZE) {
             for (int i = 0; i < size; i += MAX_BUFFER_SIZE) {
-                cout << "sending chunk.. " << i << endl;
                 size_t minsize = min(size - i, MAX_BUFFER_SIZE);
                 if (!send(socket, data + i, minsize, flags)) {
                     disconnect(socket, "chunk sending failed");
@@ -113,7 +112,6 @@ public:
         // receive in chunks if the message is too long
         if (size > MAX_BUFFER_SIZE) {
             for (int i = 0; i < size; i += MAX_BUFFER_SIZE) {
-                cout << "recieving chunk.. " << i << endl;
                 size_t minsize = min(size - i, MAX_BUFFER_SIZE);
                 if (recv(socket, data + i, minsize, flags) != minsize) {
                     disconnect(socket, "chunk recieving failed");

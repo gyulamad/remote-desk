@@ -256,25 +256,26 @@ protected:
             }
         }
         free(linebuffer);
-        printf("Lecture de l'image terminee.\n");
+        // printf("Lecture de l'image terminee.\n");
 
         jpeg_finish_decompress(&cinfo);
         jpeg_destroy_decompress(&cinfo);
 
-        printf("Fermeture du fichier reussie.\n");
+        // printf("Fermeture du fichier reussie.\n");
 
         XImage* ximage = XCreateImage(display, DefaultVisual(display, 0), DefaultDepth(display, DefaultScreen(display)), ZPixmap, 0, (char*)image32, cinfo.output_width, cinfo.output_height, 32, 0);
 
-        printf("Creation de l'image reussie.\n");
+        // printf("Creation de l'image reussie.\n");
 
         // Affichage de l'image - Shows the image
         XPutImage(display, window, DefaultGC(display, 0), ximage, 0, 0, 0, 0, cinfo.output_height, cinfo.output_width);
         
-        XFlush(display);
-        printf("Affichage de l'image reussie.\n");
+        // XFlush(display);
+        // printf("Affichage de l'image reussie.\n");
 
 
         XFlush(display);
+        
 
         free(image32);
     }

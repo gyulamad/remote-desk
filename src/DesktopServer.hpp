@@ -141,7 +141,6 @@ public:
             if (server.sockets(true).empty()) continue;
 
             if (size) {
-                cout << "sending image.." << endl;
                 // cout << "write: " << file_write("send.jpg", (const char*)jpeg, size) << endl;
                 for (int socket: server.sockets(true)) {
                     if (!server.send_arr(socket, jpeg, size, 0)) {
@@ -180,9 +179,8 @@ public:
                 // cout << "Capture screen" << endl;
                 // changes = screenshotManager.captureChanges();
                 //screenjpg = 
-                cout << "capturing image.." << endl;
                 size = screenshot.captureJpeg(jpeg);
-                cout << size << endl;
+                // cout << size << endl;
                 captureNextAt = now + captureFreq;
             }
         }

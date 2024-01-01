@@ -48,6 +48,11 @@ public:
             throw runtime_error("Failed to capture image of the specified area.");
         }
 
+        // Debugging output
+        // std::cout << "XImage depth: " << xImage->depth << std::endl;
+        // std::cout << "XImage bits per pixel: " << xImage->bits_per_pixel << std::endl;
+        // std::cout << "XImage bytes per line: " << xImage->bytes_per_line << std::endl;
+// exit(1);
         // *** Convert XImage to jpeg ***
 
         struct jpeg_compress_struct cinfo;
@@ -64,8 +69,10 @@ public:
         // Set image parameters
         cinfo.image_width = xImage->width;
         cinfo.image_height = xImage->height;
-        cinfo.input_components = 3; // Assuming RGB format
-        cinfo.in_color_space = JCS_RGB;
+        cinfo.input_components = 4; // Assuming RGB format
+        cinfo.in_color_space = JCS_EXT_BGRX;
+
+        jpeg_set_quality(&cinfo, 0, TRUE);
 
         // Set default compression parameters
         jpeg_set_defaults(&cinfo);
