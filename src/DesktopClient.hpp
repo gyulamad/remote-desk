@@ -16,6 +16,7 @@
 #include "tcp.hpp"
 #include "fileio.hpp"
 // #include "ChangedRectangle.hpp"
+#include "Rectangle.hpp"
 
 using namespace std;
 
@@ -43,7 +44,7 @@ private:
         int screen = DefaultScreen(display);
 
         window = XCreateSimpleWindow(display, RootWindow(display, screen),
-                                      10, 10, 1000, 600, 1,
+                                      10, 10, windowWidth, windowHeight, 1,
                                       BlackPixel(display, screen),
                                       WhitePixel(display, screen));
 
@@ -72,31 +73,66 @@ private:
     void handleKeyPress(const XKeyEvent& keyEvent) {
         // Stub method for key press event handling
         cout << "Key pressed: " << keyEvent.keycode << endl;
+        updates += "\nkp" 
+            + to_string(keyEvent.keycode)
+        ;
     }
 
     void handleKeyRelease(const XKeyEvent& keyEvent) {
         // Stub method for key release event handling
         cout << "Key released: " << keyEvent.keycode << endl;
+        updates += "\nkr" 
+            + to_string(keyEvent.keycode)
+        ;
     }
 
     void handleMousePress(const XButtonEvent& buttonEvent) {
-        // Stub method for mouse button press event handling
+        // rect->width/hight => original screen width/height
+        //      eventx / realx = windowWidth / screenWidth
+        //      realx / eventx = screenWidth / windowWidth
+        //      realx = (screenWidth / windowWidth) * eventx
+        int x = (int)( ((double)screenWidth / (double)windowWidth) * (double)buttonEvent.x );
+        int y = (int)( ((double)screenHeight / (double)windowHeight) * (double)buttonEvent.y );
         cout << "Mouse button pressed: " << buttonEvent.button << endl;
+        updates += "\nmp" 
+            + to_string(buttonEvent.button) + "," 
+            + to_string(x) + "," 
+            + to_string(y)
+        ;
     }
 
     void handleMouseRelease(const XButtonEvent& buttonEvent) {
-        // Stub method for mouse button release event handling
+        // rect->width/hight => original screen width/height
+        //      eventx / realx = windowWidth / screenWidth
+        //      realx / eventx = screenWidth / windowWidth
+        //      realx = (screenWidth / windowWidth) * eventx
+        int x = (int)( ((double)screenWidth / (double)windowWidth) * (double)buttonEvent.x );
+        int y = (int)( ((double)screenHeight / (double)windowHeight) * (double)buttonEvent.y );
         cout << "Mouse button released: " << buttonEvent.button << endl;
+        updates += "\nmr" 
+            + to_string(buttonEvent.button) + "," 
+            + to_string(x) + "," 
+            + to_string(y)
+        ;
     }
 
     void handleMouseMove(const XMotionEvent& motionEvent) {
-        // Stub method for mouse move event handling
+        // rect->width/hight => original screen width/height
+        //      eventx / realx = windowWidth / screenWidth
+        //      realx / eventx = screenWidth / windowWidth
+        //      realx = (screenWidth / windowWidth) * eventx
+        int x = (int)( ((double)screenWidth / (double)windowWidth) * (double)motionEvent.x );
+        int y = (int)( ((double)screenHeight / (double)windowHeight) * (double)motionEvent.y );
         cout << "Mouse moved: (" << motionEvent.x << ", " << motionEvent.y << ")" << endl;
+        updates += "\nmm" 
+            + to_string(x) + "," 
+            + to_string(y)
+        ;
     }
 
     // vector<RGBPACK_CLASS> displayCache;
-    int windowWidth = 0, windowHeight = 0;
-    void handleResize(const XConfigureEvent& configureEvent) {
+    int windowWidth = 1000, windowHeight = 600; // TODO: from parameters
+    void handleResize(const XConfigureEvent& configureEvent) { // YAGNI?
         // Stub method for window resize event handling
         cout << "Window resized: " << configureEvent.width << " x " << configureEvent.height << endl;
         if (windowWidth != configureEvent.width || 
@@ -104,22 +140,21 @@ private:
         ) { 
             windowWidth = configureEvent.width;
             windowHeight = configureEvent.height;
-            updates.push_back("wr" 
+            updates += "\nwr" 
                 + to_string(configureEvent.width) + "," 
                 + to_string(configureEvent.height)
-            );
+            ;
             // displayCache.resize(windowWidth * windowHeight);
             // for (RGBPACK_CLASS& dc: displayCache) dc.color = 0;
         }
     }
 
 
-    vector<string> updates;
+    string updates = "";
     void sendUpdates(int socket) {
         if (updates.empty()) return sendNoUpdate(socket);
-        string update = updates[0];
-        if (!client.send(socket, update)) cerr << "unable send update:" << update << endl;
-        else updates.erase(updates.begin()); 
+        if (!client.send(socket, updates)) cerr << "unable send updates" << endl;
+        updates = "";
     }
 
     void sendNoUpdate(int socket) {
@@ -130,31 +165,52 @@ protected:
 
     // Assume img is the original XImage
     XImage* resizeXImage(Display* display, XImage* original, int new_width, int new_height) {
+        if (new_width <= 0 || new_height <= 0) {
+            throw std::invalid_argument("Invalid dimensions for resizing");
+        }
+
         XImage* resized = XCreateImage(display, DefaultVisual(display, DefaultScreen(display)),
                                     original->depth, ZPixmap, 0, NULL, new_width, new_height,
-                                    original->bitmap_pad, original->bytes_per_line);
+                                    original->bitmap_pad, 0);  // Set bytes_per_line to 0
 
-        if (!resized) throw runtime_error("Failed to create XImage");
+        if (!resized) {
+            throw std::runtime_error("Failed to create XImage");
+        }
+
         resized->data = (char*)malloc(resized->bytes_per_line * resized->height);
+        if (!resized->data) {
+            throw std::runtime_error("Memory allocation error");
+        }
 
-        if (!resized->data) throw runtime_error("Memory allocation error");
-        for (int y = 0; y < new_height; ++y)
-            for (int x = 0; x < new_width; ++x)
-                XPutPixel(resized, x, y, XGetPixel(
-                    original, x * original->width / new_width,
-                    y * original->height / new_height
-                ));
-            
+        for (int y = 0; y < new_height; ++y) {
+            for (int x = 0; x < new_width; ++x) {
+                int oX = x * original->width / new_width;
+                int oY = y * original->height / new_height;
+                // if (oX < original->width && oY < original->height) {
+                    XPutPixel(resized, x, y, XGetPixel(original, oX, oY));
+                // }
+            }
+        }
 
         return resized;
+    }
+    void freeXImage(XImage* image) {
+        if (image) {
+            if (image->data) {
+                free(image->data);
+                image->data = nullptr;  // Optional: Set to nullptr after freeing to avoid double free
+            }
+            XDestroyImage(image);
+        }
     }
 
     unsigned char* jpeg = nullptr;
     size_t size;
+    Rectangle* rect = nullptr;
+    int screenWidth = 0;
+    int screenHeight = 0;
 
     void drawJpeg() {
-        const int x = 0, y = 0; // position of the image on the window
-
         // Check if jpeg is nullptr or size is 0
         if (!jpeg || size == 0) {
             throw runtime_error("Invalid JPEG data");
@@ -208,26 +264,45 @@ protected:
 
         // printf("Fermeture du fichier reussie.\n");
 
-        XImage* ximage = XCreateImage(display, DefaultVisual(display, 0), DefaultDepth(display, DefaultScreen(display)), ZPixmap, 0, (char*)image32, cinfo.output_width, cinfo.output_height, 32, 0);
+        XImage* ximage = XCreateImage(display, DefaultVisual(display, 0), 
+            DefaultDepth(display, DefaultScreen(display)), 
+            ZPixmap, 0, (char*)image32, cinfo.output_width, cinfo.output_height, 32, 0);
 
-        // printf("Creation de l'image reussie.\n");
+        
+        
+        // ximage->width / new_width = screenWidth / windowWidth
+        // new_width / ximage->width = windowWidth / screenWidth
+        int new_width = (int)( ((double)windowWidth / (double)rect->width) * (double)ximage->width );
+        int new_height = (int)( ((double)windowHeight / (double)rect->height) * (double)ximage->height );
+        if (new_width > 0 && new_height > 0) {
+            
+            XImage* resized = resizeXImage(display, ximage, new_width, new_height);
 
-        // Affichage de l'image - Shows the image
-        XImage* resized = resizeXImage(display, ximage, windowWidth, windowHeight);
-        XPutImage(display, window, DefaultGC(display, 0), resized, 0, 0, 0, 0, cinfo.output_width, cinfo.output_height);
-        XDestroyImage(resized);
+            // sw/ww = ox/x
+            // ww/sw = x/ox
+            // (ww*ox) / sw = x; 
+            
+            // rect->width/hight => original screen width/height
+            int x = (int)( ((double)windowWidth * (double)rect->left) / (double)rect->width );
+            int y = (int)( ((double)windowHeight * (double)rect->top) / (double)rect->height );
+                
+
+            XPutImage(display, window, DefaultGC(display, 0),
+                resized, 0, 0, x, y, cinfo.output_width, cinfo.output_height);
+            freeXImage(resized);
+        }
+        // XDestroyImage(resized);
+
+
         // XFlush(display);
         // printf("Affichage de l'image reussie.\n");
 
 
         XFlush(display);
-        
 
         free(image32);
+        
     }
-
-
-
 
 public:
     DesktopClient(const string& ipaddr, uint16_t port): 
@@ -273,6 +348,12 @@ public:
                     //     //     rects[i] = rect;
                     // }
                     // update the server about our state
+                    if (!client.recv_arr(socket, (void**)&rect, 0)) {
+                        client.disconnect(socket, "Unable to recieve image meta");
+                        continue;
+                    }
+                    screenWidth = rect->width;
+                    screenHeight = rect->height;
                     size = client.recv_arr(socket, (void**)&jpeg, 0);
                     if (!size) {
                         client.disconnect(socket, "Unable to recieve image");
@@ -282,9 +363,12 @@ public:
                     //     file_write("recv.jpg", (const char*)jpeg, size) 
                     //     << endl;                
                     // showjpg("recv.jpg");
+
+                    cout << "recv:" << size << endl;
                     drawJpeg();
+                    client.free_arr((void**)&rect);
                     client.free_arr((void**)&jpeg);
-                    //sendUpdates(socket);
+                    sendUpdates(socket);
                     break; // we are connecting to only one server
                 }
             }

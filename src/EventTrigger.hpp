@@ -23,7 +23,7 @@ public:
 
         // Trigger the mouse event at the current cursor position
         XTestFakeButtonEvent(display, button, press, CurrentTime);
-        XWarpPointer(display, None, root, 0, 0, 0, 0, x, y);
+        XWarpPointer(display, None, DefaultRootWindow(display), 0, 0, 0, 0, x, y);
         XFlush(display);
     }
 

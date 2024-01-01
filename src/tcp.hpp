@@ -168,7 +168,7 @@ public:
     }
 
     size_t recv_arr(int socket, void** data, int flags = 0) {
-        size_t size;
+        size_t size = 0;
         if (recv(socket, (char*)&size, sizeof(size), flags) != sizeof(size)) {
             disconnect(socket, "size recieving failed");
             return 0;

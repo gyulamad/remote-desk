@@ -29,6 +29,14 @@ public:
         screenHeight = DisplayHeight(display, DefaultScreen(display));
     }
 
+    int getScreenWidth() const {
+        return screenWidth;
+    }
+
+    int getScreenHeight() const {
+        return screenHeight;
+    }
+
     virtual ~Screenshot() {
         // Close the display
         XCloseDisplay(display);
@@ -108,14 +116,20 @@ public:
         return size;
     }
 
-    unsigned long captureJpeg(unsigned char*& jpeg, int quality = 50) {
+    size_t captureJpeg(unsigned char*& jpeg, int quality) {
+        return captureJpeg(0, 0, screenWidth, screenHeight, jpeg, quality);
+    }
 
-        XImage* xImage = captureXImage(0, 0, screenWidth, screenHeight);
+    // ---
 
+    XImage* captureXImage() {
+        return captureXImage(0, 0, screenWidth, screenHeight);
+    }
+
+    size_t captureJpeg(int left, int top, int width, int height, unsigned char*& jpeg, int quality) {
+        XImage* xImage = captureXImage(left, top, width, height);
         size_t size = xImageToJpeg(xImage, jpeg, quality);
-
         destroyXImage(xImage);
-
         return size;
     }
 
