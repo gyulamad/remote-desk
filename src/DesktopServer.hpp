@@ -6,6 +6,7 @@
 #include <map>
 #include <chrono>
 #include <algorithm>
+#include <cmath>
 
 #include "fileio.hpp"
 #include "tcp.hpp"
@@ -60,8 +61,6 @@ protected:
         that->eventTrigger.triggerMouseMoveEvent(args.at(0), args.at(1));
     }
 
-    // vector<ChangedRectangle> allRects;
-    // vector<int> fullRefreshNeededSockets;
     static void adaptWindowResize(DesktopServer* that, int socket, const vector<int>& args) {
         // that->clientWidth = args[0];
         // that->clientHeight = args[1];
@@ -70,38 +69,11 @@ protected:
         //     that->allRects = that->screenshotManager.getAllRectangles();
     }
 
-    // vector<string> clientAddresses;
-    // bool clientJoined = false;
-    // ScreenshotManager screenshotManager = ScreenshotManager(10, 6);
-    // int originWidth = screenshotManager.getScreenWidth();
-    // int originHeight = screenshotManager.getScreenHeight();
-    // int clientWidth = 800; // client have to send it to update.
-    // int clientHeight = 600; // it is now only the assumed default.
     Screenshot screenshot;
     EventTrigger eventTrigger;
     TCPServer& server;
     long long captureNextAt = 0;
-    long long captureFreq = 100;
-
-    // bool resizeAndSendRectangles(int socket, const vector<ChangedRectangle>& rects) const {
-    //     size_t size = rects.size();
-    //     if (!size) return true;
-    //     if (!server.send(socket, (const char*)&size, sizeof(size), 0)) {
-    //         server.disconnect(socket, "unable to send changed rectangles count");
-    //         return false;
-    //     }
-    //     for (const ChangedRectangle& rect: rects) {
-    //         ChangedRectangle resized = rect.resize(
-    //             originWidth, originHeight, 
-    //             clientWidth, clientHeight // TODO: it should be a vector, each client can have different window size
-    //         );
-    //         if (!resized.send(server, socket)) {
-    //             server.disconnect(socket, "partial image sending failed");
-    //             return false;
-    //         }
-    //     }
-    //     return true;
-    // }
+    double captureFreq = 100;
 
     void recvUpdates(int socket) {
         string msg = server.recv(socket);
@@ -124,6 +96,10 @@ protected:
     unsigned char* jpeg = nullptr;
     unsigned long size = 0;
 
+    size_t sizePrev = 0;
+    double passedPrev = 0;
+    double quality = 0.001;
+
 public:
 
     DesktopServer(TCPServer& server): server(server) {}
@@ -133,7 +109,7 @@ public:
     void runEventLoop() {
         // vector<ChangedRectangle> changes;
         while (true) {
-            
+
             // server polling only to accept new client connections,
             // (main poll in client side)
             while (server.poll()); 
@@ -141,6 +117,8 @@ public:
             if (server.sockets(true).empty()) continue;
 
             if (size) {
+                int64_t before = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+
                 // cout << "write: " << file_write("send.jpg", (const char*)jpeg, size) << endl;
                 for (int socket: server.sockets(true)) {
                     if (!server.send_arr(socket, jpeg, size, 0)) {
@@ -149,6 +127,27 @@ public:
                     }
                     //recvUpdates(socket);
                 }
+
+                // Align quality to transfer speed
+                int64_t after = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+                int64_t passed = after - before;
+                if (passed > captureFreq * 1.25) { // TODO: quality parameters to constants or parameters
+                    quality *= 0.8;
+                    captureFreq *= 1.25;
+                }
+                else if (passed <= captureFreq * 0.8) {
+                    quality *= 1.25;
+                    captureFreq *= 0.8;
+                }
+                passedPrev = passed;
+                if (quality > 0.8) quality = 0.8;
+                if (quality < 0.1) quality = 0.1;
+                if (captureFreq > 3000) captureFreq = 3000;
+                if (captureFreq < 100) captureFreq = 100;
+
+                cout << "p:" << passed << " q:" << quality << " f:" << captureFreq << endl;
+
+
                 // free(jpeg);
                 size = 0;
             }
@@ -174,13 +173,16 @@ public:
             //     changes.clear();
             // }
 
-            long long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+            long long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();            
             if (now >= captureNextAt) {
-                // cout << "Capture screen" << endl;
-                // changes = screenshotManager.captureChanges();
-                //screenjpg = 
-                size = screenshot.captureJpeg(jpeg);
-                // cout << size << endl;
+                
+                size = screenshot.captureJpeg(jpeg, quality * 100);
+                
+                // send only if changed (TODO: it can be more optimized, also send only the changed are, for e.g dont send fill screen for a blinking cursor or if only a small window changes)
+                if (size == sizePrev) size = 0;
+                if (size != 0) sizePrev = size;
+
+
                 captureNextAt = now + captureFreq;
             }
         }

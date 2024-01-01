@@ -43,7 +43,7 @@ private:
         int screen = DefaultScreen(display);
 
         window = XCreateSimpleWindow(display, RootWindow(display, screen),
-                                      10, 10, 800, 600, 1,
+                                      10, 10, 1000, 600, 1,
                                       BlackPixel(display, screen),
                                       WhitePixel(display, screen));
 
@@ -61,11 +61,6 @@ private:
         // Flush pending events
         XFlush(display);
     }
-
-    // void showImage(int top, int left, XImage* ximage) {
-    //     XPutImage(display, window, gc, ximage, 0, 0, left, top, ximage->width, ximage->height);
-    //     XFlush(display);
-    // }
 
     void cleanup() {
         if (display) {
@@ -133,76 +128,26 @@ private:
 
 protected:
 
-    // bool displayChangedRectangle(const ChangedRectangle& rect) {
+    // Assume img is the original XImage
+    XImage* resizeXImage(Display* display, XImage* original, int new_width, int new_height) {
+        XImage* resized = XCreateImage(display, DefaultVisual(display, DefaultScreen(display)),
+                                    original->depth, ZPixmap, 0, NULL, new_width, new_height,
+                                    original->bitmap_pad, original->bytes_per_line);
 
-    //     size_t pixsize = rect.pixels.size();
-    //     RGB24 prevColor, color = prevColor;
-    //     // XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
-    //     size_t ymax = rect.top + rect.height;
-    //     size_t xmax = rect.left + rect.width;
+        if (!resized) throw runtime_error("Failed to create XImage");
+        resized->data = (char*)malloc(resized->bytes_per_line * resized->height);
 
-    //     for (size_t y = rect.top; y < ymax; y++)
-    //         for (size_t x = rect.left; x < xmax; x++) {
-    //             int pixelIndex = (y - rect.top) * rect.width + (x - rect.left);
-    //             if (pixsize <= pixelIndex) break;
+        if (!resized->data) throw runtime_error("Memory allocation error");
+        for (int y = 0; y < new_height; ++y)
+            for (int x = 0; x < new_width; ++x)
+                XPutPixel(resized, x, y, XGetPixel(
+                    original, x * original->width / new_width,
+                    y * original->height / new_height
+                ));
+            
 
-    //             size_t displayIndex = x + y * windowWidth;
-    //             if (displayCache[displayIndex].color == rect.pixels[pixelIndex].color) continue;
-    //             displayCache[displayIndex] = rect.pixels[pixelIndex];
-
-    //             RGB24 color = rect.pixels[pixelIndex].toRGB24();
-    //             if (!color.isAlmostSame(prevColor)) {
-    //                 XSetForeground(display, gc, (color.r << 16) | (color.g << 8) | color.b);
-    //                 prevColor = color;
-    //             }
-    //             XDrawPoint(display, window, gc, x, y);
-    //         }
-
-    //     return true;
-    // }
-
-
-// void showjpg(
-//     // Display* display, 
-//     // Window& window,
-//     const char* fname
-// ) {
-
-//   // Load JPEG file
-//   struct jpeg_decompress_struct cinfo;
-//   struct jpeg_error_mgr jerr;
-//   cinfo.err = jpeg_std_error(&jerr);
-//   jpeg_create_decompress(&cinfo);
-  
-//   FILE* infile = fopen(fname, "rb");
-//   jpeg_stdio_src(&cinfo, infile);
-//   jpeg_read_header(&cinfo, TRUE);
-//   jpeg_start_decompress(&cinfo);
-
-//   // Create XImage from JPEG data
-//   XImage* image = XCreateImage(
-//     display, 
-//     CopyFromParent, 
-//     24, 
-//     ZPixmap,
-//     0,
-//     0, //cinfo.output_components,
-//     cinfo.output_width, 
-//     cinfo.output_height,
-//     32,
-//     0);
-  
-//   // Display XImage
-//   XPutImage(display, window, DefaultGC(display, 0), image, 0, 0, 0, 0, cinfo.output_width, cinfo.output_height);  
-//   XFlush(display);
-  
-//   // Clean up
-//   jpeg_finish_decompress(&cinfo);
-//   jpeg_destroy_decompress(&cinfo);
-//   fclose(infile);
-//   XDestroyImage(image);
-
-// }
+        return resized;
+    }
 
     unsigned char* jpeg = nullptr;
     size_t size;
@@ -228,9 +173,9 @@ protected:
         (void) jpeg_read_header(&cinfo, TRUE);
         (void) jpeg_start_decompress(&cinfo);
 
-        int width = cinfo.output_width;
-        int height = cinfo.output_height;
-        int numChannels = cinfo.output_components;
+        // int width = cinfo.output_width;
+        // int height = cinfo.output_height;
+        // int numChannels = cinfo.output_components;
 
 
         // Boucle parcours de l'image - Image browsing loop
@@ -268,8 +213,9 @@ protected:
         // printf("Creation de l'image reussie.\n");
 
         // Affichage de l'image - Shows the image
-        XPutImage(display, window, DefaultGC(display, 0), ximage, 0, 0, 0, 0, cinfo.output_height, cinfo.output_width);
-        
+        XImage* resized = resizeXImage(display, ximage, windowWidth, windowHeight);
+        XPutImage(display, window, DefaultGC(display, 0), resized, 0, 0, 0, 0, cinfo.output_width, cinfo.output_height);
+        XDestroyImage(resized);
         // XFlush(display);
         // printf("Affichage de l'image reussie.\n");
 

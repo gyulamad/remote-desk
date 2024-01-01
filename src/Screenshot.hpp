@@ -34,19 +34,29 @@ public:
         XCloseDisplay(display);
     }
 
-    unsigned long captureJpeg(unsigned char*& jpeg) {
-
+    XImage* captureXImage(int left, int top, int width, int height) {
         // *** Capture screen as an XImage ***
 
         XImage* xImage = XGetImage(
             display, RootWindow(
-                display, DefaultScreen(display)),
-                0, 0, screenWidth, screenHeight, AllPlanes, ZPixmap
-            );
+                display, DefaultScreen(display)
+            ),
+            left, top, width, height, AllPlanes, ZPixmap
+        );
 
         if (!xImage) {
             throw runtime_error("Failed to capture image of the specified area.");
         }
+
+        return xImage;
+    }
+
+    void destroyXImage(XImage* xImage) {
+        // *** Free up XImage ***
+        XDestroyImage(xImage);
+    }
+
+    size_t xImageToJpeg(XImage* xImage, unsigned char*& jpeg, int quality = 50) {
 
         // Debugging output
         // std::cout << "XImage depth: " << xImage->depth << std::endl;
@@ -63,19 +73,23 @@ public:
         jpeg_create_compress(&cinfo);
 
         // Set in-memory destination
-        unsigned long size;
+        unsigned long size = 0;
         jpeg_mem_dest(&cinfo, &jpeg, &size);
+    
 
         // Set image parameters
         cinfo.image_width = xImage->width;
         cinfo.image_height = xImage->height;
         cinfo.input_components = 4; // Assuming RGB format
         cinfo.in_color_space = JCS_EXT_BGRX;
+        // NOTE: these are user specific and need more tests:
+        cinfo.dct_method = JDCT_FASTEST;  // or JDCT_ISLOW, JDCT_FLOAT, etc.
 
-        jpeg_set_quality(&cinfo, 0, TRUE);
+        jpeg_set_defaults(&cinfo);
+        jpeg_set_quality(&cinfo, quality, TRUE); // TODO: adjust the quality to the connection speed
+        // jpeg_set_colorspace(&cinfo, JCS_GRAYSCALE);
 
         // Set default compression parameters
-        jpeg_set_defaults(&cinfo);
         jpeg_start_compress(&cinfo, TRUE);
 
         // Write image data
@@ -91,8 +105,16 @@ public:
         // Clean up
         jpeg_destroy_compress(&cinfo);
 
-        // *** Free up XImage ***
-        XDestroyImage(xImage);
+        return size;
+    }
+
+    unsigned long captureJpeg(unsigned char*& jpeg, int quality = 50) {
+
+        XImage* xImage = captureXImage(0, 0, screenWidth, screenHeight);
+
+        size_t size = xImageToJpeg(xImage, jpeg, quality);
+
+        destroyXImage(xImage);
 
         return size;
     }
