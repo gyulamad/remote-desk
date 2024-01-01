@@ -7,10 +7,14 @@
 
 #include <unistd.h>
 
+#include <jpeglib.h>
+#include <setjmp.h>
+
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
 #include "tcp.hpp"
+#include "fileio.hpp"
 // #include "ChangedRectangle.hpp"
 
 using namespace std;
@@ -58,10 +62,10 @@ private:
         XFlush(display);
     }
 
-    void showImage(int top, int left, XImage* ximage) {
-        XPutImage(display, window, gc, ximage, 0, 0, left, top, ximage->width, ximage->height);
-        XFlush(display);
-    }
+    // void showImage(int top, int left, XImage* ximage) {
+    //     XPutImage(display, window, gc, ximage, 0, 0, left, top, ximage->width, ximage->height);
+    //     XFlush(display);
+    // }
 
     void cleanup() {
         if (display) {
@@ -157,6 +161,127 @@ protected:
     //     return true;
     // }
 
+
+// void showjpg(
+//     // Display* display, 
+//     // Window& window,
+//     const char* fname
+// ) {
+
+//   // Load JPEG file
+//   struct jpeg_decompress_struct cinfo;
+//   struct jpeg_error_mgr jerr;
+//   cinfo.err = jpeg_std_error(&jerr);
+//   jpeg_create_decompress(&cinfo);
+  
+//   FILE* infile = fopen(fname, "rb");
+//   jpeg_stdio_src(&cinfo, infile);
+//   jpeg_read_header(&cinfo, TRUE);
+//   jpeg_start_decompress(&cinfo);
+
+//   // Create XImage from JPEG data
+//   XImage* image = XCreateImage(
+//     display, 
+//     CopyFromParent, 
+//     24, 
+//     ZPixmap,
+//     0,
+//     0, //cinfo.output_components,
+//     cinfo.output_width, 
+//     cinfo.output_height,
+//     32,
+//     0);
+  
+//   // Display XImage
+//   XPutImage(display, window, DefaultGC(display, 0), image, 0, 0, 0, 0, cinfo.output_width, cinfo.output_height);  
+//   XFlush(display);
+  
+//   // Clean up
+//   jpeg_finish_decompress(&cinfo);
+//   jpeg_destroy_decompress(&cinfo);
+//   fclose(infile);
+//   XDestroyImage(image);
+
+// }
+
+    unsigned char* jpeg = nullptr;
+    size_t size;
+
+    void drawJpeg() {
+        const int x = 0, y = 0; // position of the image on the window
+
+        // Check if jpeg is nullptr or size is 0
+        if (!jpeg || size == 0) {
+            throw runtime_error("Invalid JPEG data");
+        }
+
+        // Load the JPEG image from the vector
+        struct jpeg_decompress_struct cinfo;
+        struct jpeg_error_mgr jerr;
+
+        // Initialize error manager
+        cinfo.err = jpeg_std_error(&jerr);
+        jpeg_create_decompress(&cinfo);
+
+
+        jpeg_mem_src(&cinfo, jpeg, size);
+        (void) jpeg_read_header(&cinfo, TRUE);
+        (void) jpeg_start_decompress(&cinfo);
+
+        int width = cinfo.output_width;
+        int height = cinfo.output_height;
+        int numChannels = cinfo.output_components;
+
+
+        // Boucle parcours de l'image - Image browsing loop
+        unsigned char *image32 = (unsigned char *)malloc(cinfo.output_width*cinfo.output_height*4);
+        unsigned char *p = image32;
+        // Pour chaque ligne - for each line
+        // memory to store line
+        unsigned char *linebuffer = (unsigned char*)malloc(cinfo.output_width * cinfo.output_components);
+
+        while (cinfo.output_scanline < cinfo.output_height){
+            JSAMPROW buffer[1];
+
+            buffer[0] =  linebuffer;
+
+            jpeg_read_scanlines(&cinfo, buffer, 1); 
+
+            // Pour chaque pixel de la ligne - for each pixel of the  line
+            for(unsigned int i=0; i<cinfo.output_width; i++){
+                *p++ = linebuffer[i * cinfo.output_components + 2]; // B
+                *p++ = linebuffer[i * cinfo.output_components + 1]; // G
+                *p++ = linebuffer[i * cinfo.output_components];     // R
+                *p++ = 0;
+            }
+        }
+        free(linebuffer);
+        printf("Lecture de l'image terminee.\n");
+
+        jpeg_finish_decompress(&cinfo);
+        jpeg_destroy_decompress(&cinfo);
+
+        printf("Fermeture du fichier reussie.\n");
+
+        XImage* ximage = XCreateImage(display, DefaultVisual(display, 0), DefaultDepth(display, DefaultScreen(display)), ZPixmap, 0, (char*)image32, cinfo.output_width, cinfo.output_height, 32, 0);
+
+        printf("Creation de l'image reussie.\n");
+
+        // Affichage de l'image - Shows the image
+        XPutImage(display, window, DefaultGC(display, 0), ximage, 0, 0, 0, 0, cinfo.output_height, cinfo.output_width);
+        
+        XFlush(display);
+        printf("Affichage de l'image reussie.\n");
+
+
+        XFlush(display);
+
+        free(image32);
+    }
+
+
+
+
 public:
     DesktopClient(const string& ipaddr, uint16_t port): 
         display(nullptr), 
@@ -184,6 +309,7 @@ public:
             // Check for screen changes from the server
             while (client.poll()) {
                 for (int socket: client.sockets()) {
+
                     // size_t changes;
                     // if (-1 == client.recv(socket, (char*)&changes, sizeof(changes), 0)) {
                     //     client.disconnect(socket, "unable to recieve changes count");
@@ -200,16 +326,33 @@ public:
                     //     //     rects[i] = rect;
                     // }
                     // update the server about our state
-                    sendUpdates(socket);
+                    size = client.recv_arr(socket, (void**)&jpeg, 0);
+                    if (!size) {
+                        client.disconnect(socket, "Unable to recieve image");
+                        continue;
+                    }
+                    // cout << "write: " << 
+                    //     file_write("recv.jpg", (const char*)jpeg, size) 
+                    //     << endl;                
+                    // showjpg("recv.jpg");
+                    drawJpeg();
+                    client.free_arr((void**)&jpeg);
+                    //sendUpdates(socket);
                     break; // we are connecting to only one server
                 }
             }
 
 
-            // // show changes if anything left to see..
-            // for (const ChangedRectangle& rect: rects) 
-            //     displayChangedRectangle(rect);
-            // //rects.clear();
+            // // // show changes if anything left to see..
+            // // for (const ChangedRectangle& rect: rects) 
+            // //     displayChangedRectangle(rect);
+            // // //rects.clear();
+            // if (size) {
+            //     cout << "write: " << file_write("recv.jpg", (const char*)jpeg, size) << endl;
+            //     //drawJpeg();
+            //     // free(jpeg);
+            //     size = 0;
+            // }
 
 
             if (!XPending(display)) continue;

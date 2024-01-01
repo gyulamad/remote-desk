@@ -7,8 +7,10 @@
 #include <chrono>
 #include <algorithm>
 
+#include "fileio.hpp"
 #include "tcp.hpp"
 #include "EventTrigger.hpp"
+#include "Screenshot.hpp"
 // #include "ScreenshotManager.hpp"
 
 using namespace std;
@@ -75,6 +77,7 @@ protected:
     // int originHeight = screenshotManager.getScreenHeight();
     // int clientWidth = 800; // client have to send it to update.
     // int clientHeight = 600; // it is now only the assumed default.
+    Screenshot screenshot;
     EventTrigger eventTrigger;
     TCPServer& server;
     long long captureNextAt = 0;
@@ -118,6 +121,9 @@ protected:
         }
     }
 
+    unsigned char* jpeg = nullptr;
+    unsigned long size = 0;
+
 public:
 
     DesktopServer(TCPServer& server): server(server) {}
@@ -133,6 +139,20 @@ public:
             while (server.poll()); 
 
             if (server.sockets(true).empty()) continue;
+
+            if (size) {
+                cout << "sending image.." << endl;
+                // cout << "write: " << file_write("send.jpg", (const char*)jpeg, size) << endl;
+                for (int socket: server.sockets(true)) {
+                    if (!server.send_arr(socket, jpeg, size, 0)) {
+                        server.disconnect(socket, "Couldn't send image");
+                        continue;
+                    }
+                    //recvUpdates(socket);
+                }
+                // free(jpeg);
+                size = 0;
+            }
 
             // if (changes.size()) {
             //     for (int socket: server.sockets(true)) {
@@ -159,6 +179,10 @@ public:
             if (now >= captureNextAt) {
                 // cout << "Capture screen" << endl;
                 // changes = screenshotManager.captureChanges();
+                //screenjpg = 
+                cout << "capturing image.." << endl;
+                size = screenshot.captureJpeg(jpeg);
+                cout << size << endl;
                 captureNextAt = now + captureFreq;
             }
         }

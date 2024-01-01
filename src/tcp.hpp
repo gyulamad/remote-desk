@@ -43,7 +43,7 @@ protected:
     }
 
 public:
-    const size_t MAX_BUFFER_SIZE = 64000;
+    const size_t MAX_BUFFER_SIZE = 1024; // 64000;
     static const int DEFAULT_POLL_TIMEOUT = 1;
 
     virtual ~TCPSocket() {
@@ -87,6 +87,7 @@ public:
         // send in chunks if the message is too long
         if (size > MAX_BUFFER_SIZE) {
             for (int i = 0; i < size; i += MAX_BUFFER_SIZE) {
+                cout << "sending chunk.. " << i << endl;
                 size_t minsize = min(size - i, MAX_BUFFER_SIZE);
                 if (!send(socket, data + i, minsize, flags)) {
                     disconnect(socket, "chunk sending failed");
@@ -112,6 +113,7 @@ public:
         // receive in chunks if the message is too long
         if (size > MAX_BUFFER_SIZE) {
             for (int i = 0; i < size; i += MAX_BUFFER_SIZE) {
+                cout << "recieving chunk.. " << i << endl;
                 size_t minsize = min(size - i, MAX_BUFFER_SIZE);
                 if (recv(socket, data + i, minsize, flags) != minsize) {
                     disconnect(socket, "chunk recieving failed");
@@ -152,6 +154,41 @@ public:
             return "";
         }
         return buff;
+    }
+
+    template<typename T>
+    bool send_arr(int socket, const T& data, size_t size, int flags = 0) {
+        if (!send(socket, (const char*)&size, sizeof(size), flags)) {
+            disconnect(socket, "size sending failed");
+            return false;
+        }
+        if (!send(socket, (const char*)data, size, flags)) {
+            disconnect(socket, "data sending failed");
+            return false;
+        }
+        return true;
+    }
+
+    size_t recv_arr(int socket, void** data, int flags = 0) {
+        size_t size;
+        if (recv(socket, (char*)&size, sizeof(size), flags) != sizeof(size)) {
+            disconnect(socket, "size recieving failed");
+            return 0;
+        }
+        // size_t fullsize = sizeof(T) * size;
+        *data = malloc(size);
+        if (recv(socket, (char*)*data, size, flags) != size /*fullsize*/) {
+            free(*data);
+            disconnect(socket, "data recieving failed");
+            return 0;
+        }
+
+        return size;
+    }
+
+    void free_arr(void** data) {
+        free(*data);
+        data = nullptr;
     }
 
     template<typename T>
