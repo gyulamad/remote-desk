@@ -150,15 +150,16 @@ public:
 
             // server polling only to accept new client connections,
             // (main poll in client side)
-            while (server.poll()); 
+            while (server.poll()); // TODO: authenticate clients first
 
             if (server.sockets(true).empty()) continue;
 
-            if (size) {
+            if (size) { // TODO: if no changes on the screen still send a "no-image" image so that the client still can send there updates about there user inputs such as mouse and keyboard events
                 int64_t before = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 
                 // cout << "write: " << file_write("send.jpg", (const char*)jpeg, size) << endl;
                 for (int socket: server.sockets(true)) {
+                    // TODO: also send the mouse cursor if changed
                     rect.width = screenshot.getScreenWidth();
                     rect.height = screenshot.getScreenHeight();
                     // cout << "send:" << size 
