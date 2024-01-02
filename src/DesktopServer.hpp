@@ -161,12 +161,12 @@ public:
                 for (int socket: server.sockets(true)) {
                     rect.width = screenshot.getScreenWidth();
                     rect.height = screenshot.getScreenHeight();
-                    cout << "send:" << size 
-                        << " rect:" 
-                        << rect.left << "," << rect.top << " " 
-                        << rect.width << "," << rect.height << " - " 
-                        << sizeof(rect) 
-                        << endl;
+                    // cout << "send:" << size 
+                    //     << " rect:" 
+                    //     << rect.left << "," << rect.top << " " 
+                    //     << rect.width << "," << rect.height << " - " 
+                    //     << sizeof(rect) 
+                    //     << endl;
                     if (!server.send_arr(socket, &rect, sizeof(rect), 0)) {
                         server.disconnect(socket, "Couldn't send image meta");
                         continue;
@@ -195,7 +195,7 @@ public:
                 if (captureFreq > captureFreqMax) captureFreq = captureFreqMax;
                 if (captureFreq < captureFreqMin) captureFreq = captureFreqMin;
 
-                cout << "p:" << passed << " q:" << quality << " f:" << captureFreq << endl;
+                // cout << "p:" << passed << " q:" << quality << " f:" << captureFreq << endl;
 
 
                 // free(jpeg);

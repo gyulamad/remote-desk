@@ -73,17 +73,17 @@ private:
     void handleKeyPress(const XKeyEvent& keyEvent) {
         // Stub method for key press event handling
         cout << "Key pressed: " << keyEvent.keycode << endl;
-        updates += "\nkp" 
+        updates.push_back("kp" 
             + to_string(keyEvent.keycode)
-        ;
+        );
     }
 
     void handleKeyRelease(const XKeyEvent& keyEvent) {
         // Stub method for key release event handling
         cout << "Key released: " << keyEvent.keycode << endl;
-        updates += "\nkr" 
+        updates.push_back("kr" 
             + to_string(keyEvent.keycode)
-        ;
+        );
     }
 
     void handleMousePress(const XButtonEvent& buttonEvent) {
@@ -94,11 +94,11 @@ private:
         int x = (int)( ((double)screenWidth / (double)windowWidth) * (double)buttonEvent.x );
         int y = (int)( ((double)screenHeight / (double)windowHeight) * (double)buttonEvent.y );
         cout << "Mouse button pressed: " << buttonEvent.button << endl;
-        updates += "\nmp" 
+        updates.push_back("mp" 
             + to_string(buttonEvent.button) + "," 
             + to_string(x) + "," 
             + to_string(y)
-        ;
+        );
     }
 
     void handleMouseRelease(const XButtonEvent& buttonEvent) {
@@ -109,11 +109,11 @@ private:
         int x = (int)( ((double)screenWidth / (double)windowWidth) * (double)buttonEvent.x );
         int y = (int)( ((double)screenHeight / (double)windowHeight) * (double)buttonEvent.y );
         cout << "Mouse button released: " << buttonEvent.button << endl;
-        updates += "\nmr" 
+        updates.push_back("mr" 
             + to_string(buttonEvent.button) + "," 
             + to_string(x) + "," 
             + to_string(y)
-        ;
+        );
     }
 
     void handleMouseMove(const XMotionEvent& motionEvent) {
@@ -124,10 +124,13 @@ private:
         int x = (int)( ((double)screenWidth / (double)windowWidth) * (double)motionEvent.x );
         int y = (int)( ((double)screenHeight / (double)windowHeight) * (double)motionEvent.y );
         cout << "Mouse moved: (" << motionEvent.x << ", " << motionEvent.y << ")" << endl;
-        updates += "\nmm" 
+        string update = "mm" 
             + to_string(x) + "," 
-            + to_string(y)
-        ;
+            + to_string(y);
+        string lst = "";
+        for (const string& updt: updates)
+            if (updt.substr(0, 2) == "mm") lst = updt;
+        if (update != lst) updates.push_back(update);
     }
 
     // vector<RGBPACK_CLASS> displayCache;
@@ -140,25 +143,34 @@ private:
         ) { 
             windowWidth = configureEvent.width;
             windowHeight = configureEvent.height;
-            updates += "\nwr" 
+            updates.push_back("wr" 
                 + to_string(configureEvent.width) + "," 
                 + to_string(configureEvent.height)
-            ;
+            );
             // displayCache.resize(windowWidth * windowHeight);
             // for (RGBPACK_CLASS& dc: displayCache) dc.color = 0;
         }
     }
 
 
-    string updates = "";
+    vector<string> updates;
     void sendUpdates(int socket) {
         if (updates.empty()) return sendNoUpdate(socket);
-        if (!client.send(socket, updates)) cerr << "unable send updates" << endl;
-        updates = "";
+        string msg = str_concat(updates, "\n");
+        if (!client.send(socket, msg)) cerr << "unable send updates" << endl;
+        updates.clear();
     }
 
     void sendNoUpdate(int socket) {
         if (!client.send(socket, "np0")) cerr << "unable send no-update" << endl;
+    }
+    
+    // TODO: lib function
+    string str_concat(const vector<string>& strs, const string& sep) {
+        if (strs.empty()) return "";
+        string result = strs[0];
+        for (size_t i = 1; i < strs.size(); ++i) result += sep + strs[i];
+        return result;
     }
 
 protected:
@@ -364,10 +376,11 @@ public:
                     //     << endl;                
                     // showjpg("recv.jpg");
 
-                    cout << "recv:" << size << endl;
+                    // cout << "recv:" << size << endl;
                     drawJpeg();
                     client.free_arr((void**)&rect);
                     client.free_arr((void**)&jpeg);
+
                     sendUpdates(socket);
                     break; // we are connecting to only one server
                 }
@@ -389,7 +402,7 @@ public:
             if (!XPending(display)) continue;
             XEvent event;
             XNextEvent(display, &event);
-            while (XPending(display)) XNextEvent(display, &event);
+            // while (XPending(display)) XNextEvent(display, &event);
 
             switch (event.type) {
                 case KeyPress:
