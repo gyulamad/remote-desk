@@ -14,8 +14,9 @@
 #include    <X11/Xlib.h>
 #include    <X11/Xutil.h>
 
-#include "src/fileio.hpp"
+#include "libs/clib/clib/files.hpp"
 
+using namespace clib;
 
 int window() {
     cout << "window()....." << endl;
@@ -141,7 +142,7 @@ void test_jpeg_form_data() {
     unsigned char *p = image32;
     // Pour chaque ligne - for each line
     // memory to store line
-    unsigned char *linebuffer = (unsigned char*)malloc(cinfo.output_width * cinfo.output_components);
+    unsigned char *linebuffer = (unsigned char*)malloc(cinfo.output_width * (unsigned)cinfo.output_components);
 
     while (cinfo.output_scanline < cinfo.output_height){
         JSAMPROW buffer[1];
@@ -152,9 +153,9 @@ void test_jpeg_form_data() {
 
         // Pour chaque pixel de la ligne - for each pixel of the  line
         for(unsigned int i=0; i<cinfo.output_width; i++){
-            *p++ = linebuffer[i * cinfo.output_components + 2]; // B
-            *p++ = linebuffer[i * cinfo.output_components + 1]; // G
-            *p++ = linebuffer[i * cinfo.output_components];     // R
+            *p++ = linebuffer[i * (unsigned)cinfo.output_components + 2]; // B
+            *p++ = linebuffer[i * (unsigned)cinfo.output_components + 1]; // G
+            *p++ = linebuffer[i * (unsigned)cinfo.output_components];     // R
             *p++ = 0;
         }
     }
@@ -166,7 +167,7 @@ void test_jpeg_form_data() {
 
     printf("Fermeture du fichier reussie.\n");
 
-    XImage* ximage = XCreateImage(display, DefaultVisual(display, 0), DefaultDepth(display, DefaultScreen(display)), ZPixmap, 0, (char*)image32, cinfo.output_width, cinfo.output_height, 32, 0);
+    XImage* ximage = XCreateImage(display, DefaultVisual(display, 0), (unsigned)DefaultDepth(display, DefaultScreen(display)), ZPixmap, 0, (char*)image32, cinfo.output_width, cinfo.output_height, 32, 0);
 
     printf("Creation de l'image reussie.\n");
 
@@ -271,7 +272,7 @@ int main() {
     unsigned char *p = image32;
     // Pour chaque ligne - for each line
     // memory to store line
-    unsigned char *linebuffer = (unsigned char*)malloc(cinfo.output_width * cinfo.output_components);
+    unsigned char *linebuffer = (unsigned char*)malloc(cinfo.output_width * (unsigned)cinfo.output_components);
 
     while (cinfo.output_scanline < cinfo.output_height){
         JSAMPROW buffer[1];
@@ -282,9 +283,9 @@ int main() {
 
         // Pour chaque pixel de la ligne - for each pixel of the  line
         for(unsigned int i=0; i<cinfo.output_width; i++){
-            *p++ = linebuffer[i * cinfo.output_components + 2]; // B
-            *p++ = linebuffer[i * cinfo.output_components + 1]; // G
-            *p++ = linebuffer[i * cinfo.output_components];     // R
+            *p++ = linebuffer[i * (unsigned)cinfo.output_components + 2]; // B
+            *p++ = linebuffer[i * (unsigned)cinfo.output_components + 1]; // G
+            *p++ = linebuffer[i * (unsigned)cinfo.output_components];     // R
             *p++ = 0;
         }
     }
@@ -297,7 +298,7 @@ int main() {
 
     printf("Fermeture du fichier reussie.\n");
 
-    XImage* ximage = XCreateImage(display, DefaultVisual(display, 0), DefaultDepth(display, DefaultScreen(display)), ZPixmap, 0, (char*)image32, cinfo.output_width, cinfo.output_height, 32, 0);
+    XImage* ximage = XCreateImage(display, DefaultVisual(display, 0), (unsigned)DefaultDepth(display, DefaultScreen(display)), ZPixmap, 0, (char*)image32, cinfo.output_width, cinfo.output_height, 32, 0);
 
     printf("Creation de l'image reussie.\n");
 

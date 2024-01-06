@@ -9,7 +9,7 @@ class EventTrigger {
 public:
     void triggerKeyEvent(KeySym key, bool press) {
         // KeyCode keyCode = XKeysymToKeycode(display, key);
-        XTestFakeKeyEvent(display, key, press, CurrentTime);
+        XTestFakeKeyEvent(display, (unsigned)key, press, CurrentTime);
         XFlush(display);
     }
 

@@ -1,3 +1,2 @@
 clear
-g++ -g tests.cpp -o build/tests \
-    -lX11 -lXtst -ljpeg
+libs/clib/build/builder -i ./tests.cpp --libs " -lX11 -lXtst -ljpeg" -d

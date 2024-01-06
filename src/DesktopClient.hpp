@@ -14,7 +14,7 @@
 #include <X11/Xutil.h>
 
 #include "tcp.hpp"
-#include "fileio.hpp"
+#include "../libs/clib/clib/files.hpp"
 // #include "ChangedRectangle.hpp"
 #include "Rectangle.hpp"
 
@@ -44,7 +44,7 @@ private:
         int screen = DefaultScreen(display);
 
         window = XCreateSimpleWindow(display, RootWindow(display, screen),
-                                      10, 10, windowWidth, windowHeight, 1,
+                                      10, 10, (unsigned)windowWidth, (unsigned)windowHeight, 1,
                                       BlackPixel(display, screen),
                                       WhitePixel(display, screen));
 
@@ -182,14 +182,15 @@ protected:
         }
 
         XImage* resized = XCreateImage(display, DefaultVisual(display, DefaultScreen(display)),
-                                    original->depth, ZPixmap, 0, NULL, new_width, new_height,
+                                    (unsigned)original->depth, (unsigned)ZPixmap, (unsigned)0, NULL, 
+                                    (unsigned)new_width, (unsigned)new_height,
                                     original->bitmap_pad, 0);  // Set bytes_per_line to 0
 
         if (!resized) {
             throw std::runtime_error("Failed to create XImage");
         }
 
-        resized->data = (char*)malloc(resized->bytes_per_line * resized->height);
+        resized->data = (char*)malloc((unsigned)resized->bytes_per_line * (unsigned)resized->height);
         if (!resized->data) {
             throw std::runtime_error("Memory allocation error");
         }
@@ -251,7 +252,7 @@ protected:
         unsigned char *p = image32;
         // Pour chaque ligne - for each line
         // memory to store line
-        unsigned char *linebuffer = (unsigned char*)malloc(cinfo.output_width * cinfo.output_components);
+        unsigned char *linebuffer = (unsigned char*)malloc(cinfo.output_width * (unsigned)cinfo.output_components);
 
         while (cinfo.output_scanline < cinfo.output_height){
             JSAMPROW buffer[1];
@@ -262,9 +263,9 @@ protected:
 
             // Pour chaque pixel de la ligne - for each pixel of the  line
             for(unsigned int i=0; i<cinfo.output_width; i++){
-                *p++ = linebuffer[i * cinfo.output_components + 2]; // B
-                *p++ = linebuffer[i * cinfo.output_components + 1]; // G
-                *p++ = linebuffer[i * cinfo.output_components];     // R
+                *p++ = linebuffer[i * (unsigned)cinfo.output_components + 2]; // B
+                *p++ = linebuffer[i * (unsigned)cinfo.output_components + 1]; // G
+                *p++ = linebuffer[i * (unsigned)cinfo.output_components];     // R
                 *p++ = 0;
             }
         }
@@ -277,7 +278,7 @@ protected:
         // printf("Fermeture du fichier reussie.\n");
 
         XImage* ximage = XCreateImage(display, DefaultVisual(display, 0), 
-            DefaultDepth(display, DefaultScreen(display)), 
+            (unsigned)DefaultDepth(display, DefaultScreen(display)), 
             ZPixmap, 0, (char*)image32, cinfo.output_width, cinfo.output_height, 32, 0);
 
         

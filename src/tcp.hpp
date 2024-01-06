@@ -72,7 +72,7 @@ public:
         for (; i < size; i++) if (pollfds[i].fd == socket) break;
         if (size == i) return false;
         ::close(socket);
-        pollfds.erase(pollfds.begin() + i);
+        pollfds.erase(pollfds.begin() + (signed)i);
         return true;
     }
 
@@ -86,7 +86,7 @@ public:
         
         // send in chunks if the message is too long
         if (size > MAX_BUFFER_SIZE) {
-            for (int i = 0; i < size; i += MAX_BUFFER_SIZE) {
+            for (size_t i = 0; i < size; i += MAX_BUFFER_SIZE) {
                 size_t minsize = min(size - i, MAX_BUFFER_SIZE);
                 if (!send(socket, data + i, minsize, flags)) {
                     disconnect(socket, "chunk sending failed");
@@ -98,7 +98,7 @@ public:
         
         // simply send or throw error
         size_t sizechk;
-        if (::send(socket, data, size, flags) == size) {
+        if (::send(socket, data, size, flags) == (ssize_t)size) {
             ::recv(socket, (char*)&sizechk, sizeof(sizechk), flags);
             if (sizechk == size) return true;
         }
@@ -111,13 +111,13 @@ public:
 
         // receive in chunks if the message is too long
         if (size > MAX_BUFFER_SIZE) {
-            for (int i = 0; i < size; i += MAX_BUFFER_SIZE) {
+            for (size_t i = 0; i < size; i += MAX_BUFFER_SIZE) {
                 size_t minsize = min(size - i, MAX_BUFFER_SIZE);
-                if (recv(socket, data + i, minsize, flags) != minsize) {
+                if (recv(socket, data + i, minsize, flags) != (ssize_t)minsize) {
                     disconnect(socket, "chunk recieving failed");
                     return -1;
                 }
-                read += minsize;
+                read += (ssize_t)minsize;
             }
             return read;
         }
@@ -125,7 +125,7 @@ public:
         // simply receive or throw error
         read = ::recv(socket, data, size, flags);
         ::send(socket, (char*)&read, sizeof(read), flags);
-        if (read == size) return read;
+        if (read == (ssize_t)size) return read;
         disconnect(socket, "packet recieving failed");
         return -1;
     }
@@ -146,12 +146,13 @@ public:
             disconnect(socket, "string size recieving failed");
             return "";
         }
-        char buff[size + 1] = {0};
-        if (recv(socket, buff, size, flags) != size) {
+        // char buff[size + 1] = {0};
+        vector<char> buff(size + 1, 0);
+        if (recv(socket, buff.data(), size, flags) != (ssize_t)size) {
             disconnect(socket, "string contect recieving failed");
             return "";
         }
-        return buff;
+        return buff.data();
     }
 
     template<typename T>
@@ -175,7 +176,7 @@ public:
         }
         // size_t fullsize = sizeof(T) * size;
         *data = malloc(size);
-        if (recv(socket, (char*)*data, size, flags) != size /*fullsize*/) {
+        if (recv(socket, (char*)*data, size, flags) != (ssize_t)size /*fullsize*/) {
             free(*data);
             disconnect(socket, "data recieving failed");
             return 0;
@@ -250,13 +251,13 @@ public:
         // Bind the socket
         if (bind(mainSocket, (struct sockaddr*)&saddrin, sizeof(saddrin)) == -1) {
             ::close(mainSocket);
-            throw runtime_error("Unable binding socket to port: " + to_string(port));
+            throw runtime_error("Unable binding socket to port: " + to_string((signed)port));
         }
 
         // Listen for incoming connections
         if (::listen(mainSocket, 5) == -1) {
             ::close(mainSocket);
-            throw runtime_error("Unable to listen on port: " + to_string(port));
+            throw runtime_error("Unable to listen on port: " + to_string((signed)port));
         }
 
         return saddrin;
