@@ -1,3 +1,2 @@
 clear
-g++ -g server.cpp -o build/server \
-    -lX11 -lXtst -ljpeg
+libs/clib/build/builder -i ./server.cpp --libs " -lX11 -lXtst -ljpeg" -d

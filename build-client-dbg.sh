@@ -1,3 +1,2 @@
 clear
-g++ -g client.cpp -o build/client \
-    -lX11 -lXtst -ljpeg
+libs/clib/build/builder -i ./client.cpp --libs " -lX11 -lXtst -ljpeg" -d

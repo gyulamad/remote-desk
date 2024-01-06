@@ -1,4 +1,3 @@
 clear
-g++ -O3 server.cpp -o build/server \
-    -lX11 -lXtst -ljpeg && \
-./build/server
+libs/clib/build/builder -i ./server.cpp --libs " -lX11 -lXtst -ljpeg" -h
+./build/release/build/release/hppcut/server

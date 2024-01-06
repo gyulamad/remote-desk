@@ -1,3 +1,2 @@
 clear
-g++ -g test-client.cpp -o build/test-client \
-    -lX11 -lXtst
+libs/clib/build/builder -i ./test-client.cpp --libs " -lX11 -lXtst" -d

@@ -1,4 +1,3 @@
 clear
-g++ -O3 client.cpp -o build/client \
-    -lX11 -lXtst -ljpeg && \
-./build/client
+libs/clib/build/builder -i ./client.cpp --libs " -lX11 -lXtst -ljpeg" -h
+./build/release/build/release/hppcut/client

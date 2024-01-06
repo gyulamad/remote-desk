@@ -34,35 +34,35 @@ protected:
         { "wr", adaptWindowResize }, // YAGNI?
     };
 
-    static void noUpdates(DesktopServer* that, int socket, const vector<int>& args) {
+    static void noUpdates(DesktopServer* /* that */, int /* socket */, const vector<int>& /* args */) {
         // TODO
     }
 
-    static void triggerJoin(DesktopServer* that, int socket, const vector<int>& args) {
+    static void triggerJoin(DesktopServer* /* that */, int /* socket */, const vector<int>& /* args */) {
         // TODO
     }
 
-    static void triggerKeyPress(DesktopServer* that, int socket, const vector<int>& args) {
-        that->eventTrigger.triggerKeyEvent(args.at(0), true);
+    static void triggerKeyPress(DesktopServer* that, int /* socket */, const vector<int>& args) {
+        that->eventTrigger.triggerKeyEvent((unsigned)args.at(0), true);
     }
 
-    static void triggerKeyRelease(DesktopServer* that, int socket, const vector<int>& args) {
-        that->eventTrigger.triggerKeyEvent(args.at(0), false);
+    static void triggerKeyRelease(DesktopServer* that, int /* socket */, const vector<int>& args) {
+        that->eventTrigger.triggerKeyEvent((unsigned)args.at(0), false);
     }
 
-    static void triggerMousePress(DesktopServer* that, int socket, const vector<int>& args) {
-        that->eventTrigger.triggerMouseEvent(args.at(0), /*args.at(0), args.at(1),*/ true);
+    static void triggerMousePress(DesktopServer* that, int /* socket */, const vector<int>& args) {
+        that->eventTrigger.triggerMouseEvent((unsigned)args.at(0), /*args.at(0), args.at(1),*/ true);
     }
 
-    static void triggerMouseRelease(DesktopServer* that, int socket, const vector<int>& args) {
-        that->eventTrigger.triggerMouseEvent(args.at(0), /*args.at(0), args.at(1),*/ false);    
+    static void triggerMouseRelease(DesktopServer* that, int /* socket */, const vector<int>& args) {
+        that->eventTrigger.triggerMouseEvent((unsigned)args.at(0), /*args.at(0), args.at(1),*/ false);    
     }
 
-    static void triggerMouseMove(DesktopServer* that, int socket, const vector<int>& args) {
+    static void triggerMouseMove(DesktopServer* that, int /* socket */, const vector<int>& args) {
         that->eventTrigger.triggerMouseMoveEvent(args.at(0), args.at(1));
     }
 
-    static void adaptWindowResize(DesktopServer* that, int socket, const vector<int>& args) {
+    static void adaptWindowResize(DesktopServer* /* that */, int /* socket */, const vector<int>& /* args */) {
         // that->clientWidth = args[0];
         // that->clientHeight = args[1];
         // that->fullRefreshNeededSockets.push_back(socket);
@@ -83,7 +83,7 @@ protected:
         cout << "socket(" << socket << "): " << msg << endl;
         if (msg.empty()) cout << "Client disconnected" << endl;
         vector<string> updates = str_split("\n", msg);
-        for (const string msg: updates) {
+        for (const string& msg: updates) {
             if (msg.size() > 3) {
                 cout << "Received: " << msg << endl;
                 
@@ -182,15 +182,15 @@ public:
                 // Align quality to transfer speed
                 int64_t after = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
                 int64_t passed = after - before;
-                if (passed > captureFreq * 1.25) { // TODO: quality parameters to constants or parameters
+                if ((double)passed > captureFreq * 1.25) { // TODO: quality parameters to constants or parameters
                     quality *= 0.8;
                     captureFreq *= 1.25;
                 }
-                else if (passed <= captureFreq * 0.8) {
+                else if ((double)passed <= captureFreq * 0.8) {
                     quality *= 1.25;
                     captureFreq *= 0.8;
                 }
-                passedPrev = passed;
+                passedPrev = (double)passed;
                 if (quality > qualityHigh) quality = qualityHigh;
                 if (quality < qualityLow) quality = qualityLow;
                 if (captureFreq > captureFreqMax) captureFreq = captureFreqMax;
@@ -242,7 +242,7 @@ public:
                         size = screenshot.captureJpeg(
                             rect.left, rect.top, 
                             rect.width, rect.height, 
-                            jpeg, quality * 100
+                            jpeg, (int)(quality * 100)
                         );
                     }
                 } else {
@@ -261,7 +261,7 @@ public:
                         rect.width = screenshot.getScreenWidth();
                         rect.height = screenshot.getScreenHeight();
                         size = screenshot.captureJpeg(
-                            jpeg, quality * 100
+                            jpeg, (int)(quality * 100)
                         );
                     }
                 }
@@ -274,7 +274,7 @@ public:
                 // if (size != 0) sizePrev = size;
 
 
-                captureNextAt = now + captureFreq;
+                captureNextAt = now + (long long)captureFreq;
             }
         }
     }

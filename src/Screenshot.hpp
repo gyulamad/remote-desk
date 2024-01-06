@@ -49,7 +49,7 @@ public:
             display, RootWindow(
                 display, DefaultScreen(display)
             ),
-            left, top, width, height, AllPlanes, ZPixmap
+            left, top, (unsigned)width, (unsigned)height, AllPlanes, ZPixmap
         );
 
         if (!xImage) {
@@ -86,8 +86,8 @@ public:
     
 
         // Set image parameters
-        cinfo.image_width = xImage->width;
-        cinfo.image_height = xImage->height;
+        cinfo.image_width = (unsigned)xImage->width;
+        cinfo.image_height = (unsigned)xImage->height;
         cinfo.input_components = 4; // Assuming RGB format
         cinfo.in_color_space = JCS_EXT_BGRX;
         // NOTE: these are user specific and need more tests:
