@@ -5,7 +5,7 @@
 // #include "src/ScreenshotManager.hpp"
 #include "src/DesktopClient.hpp"
 // #include "src/AsioCommunicator.hpp"
-#include "src/tcp.hpp"
+// #include "src/tcp.hpp"
 // #include "src/ChangedRectangle.hpp"
 
 #include    <stdio.h>
@@ -15,6 +15,7 @@
 #include    <X11/Xutil.h>
 
 #include "libs/clib/clib/files.hpp"
+#include "libs/clib/clib/tcp.hpp"
 
 using namespace clib;
 

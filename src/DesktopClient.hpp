@@ -13,12 +13,13 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-#include "tcp.hpp"
+#include "../libs/clib/clib/tcp.hpp"
 #include "../libs/clib/clib/files.hpp"
 // #include "ChangedRectangle.hpp"
 #include "Rectangle.hpp"
 
 using namespace std;
+using namespace clib;
 
 class DesktopClient {
 private:

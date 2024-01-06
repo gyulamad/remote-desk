@@ -9,7 +9,7 @@
 #include <cmath>
 
 #include "../libs/clib/clib/files.hpp"
-#include "tcp.hpp"
+#include "../libs/clib/clib/tcp.hpp"
 #include "EventTrigger.hpp"
 #include "Screenshot.hpp"
 #include "Rectangle.hpp"
@@ -17,6 +17,7 @@
 
 using namespace std;
 using namespace chrono;
+using namespace clib;
 
 class DesktopServer {
 protected:
