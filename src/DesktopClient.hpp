@@ -15,6 +15,7 @@
 
 #include "../libs/clib/clib/tcp.hpp"
 #include "../libs/clib/clib/files.hpp"
+#include "../libs/clib/clib/chiper.hpp"
 // #include "ChangedRectangle.hpp"
 #include "Rectangle.hpp"
 
@@ -166,12 +167,30 @@ private:
         if (!client.send(socket, "np0")) cerr << "unable send no-update" << endl;
     }
     
-    // TODO: lib function
-    string str_concat(const vector<string>& strs, const string& sep) {
-        if (strs.empty()) return "";
-        string result = strs[0];
-        for (size_t i = 1; i < strs.size(); ++i) result += sep + strs[i];
-        return result;
+    // // TODO: lib function
+    // string str_concat(const vector<string>& strs, const string& sep) {
+    //     if (strs.empty()) return "";
+    //     string result = strs[0];
+    //     for (size_t i = 1; i < strs.size(); ++i) result += sep + strs[i];
+    //     return result;
+    // }
+
+    bool onConnect(int srvSocket, const string& cliid) {
+        const string privkey_fname = "keys/" + cliid + ".privkey.pem";
+
+        cout << "Sending cliid..." << endl;
+        if (!client.send(srvSocket, cliid))
+            return !client.disconnect(srvSocket, "Unable to send cliid");
+
+        cout << "Recieve challenge..." << endl;
+        string encrypted = client.recv(srvSocket);
+        string solution = decrypt(encrypted, privkey_fname);
+        cout << "Sending solution..." << endl;
+        if (!client.send(srvSocket, solution))
+            return !client.disconnect(srvSocket, "Unable to send solution");
+        
+        cout << "Connected" << endl;
+        return true;
     }
 
 protected:
@@ -319,14 +338,16 @@ protected:
     }
 
 public:
-    DesktopClient(const string& ipaddr, uint16_t port): 
+    DesktopClient(const string& ipaddr, uint16_t port, const string& cliid): 
         display(nullptr), 
         window(0)
     {
         init();
         createWindow();
         
-        client.connect(ipaddr, port);
+        int srvSocket = client.connect(ipaddr, port);
+        if (!onConnect(srvSocket, cliid))
+            throw ERROR("Auth failed");
     }
 
     ~DesktopClient() {

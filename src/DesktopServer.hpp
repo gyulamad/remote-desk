@@ -10,6 +10,8 @@
 
 #include "../libs/clib/clib/files.hpp"
 #include "../libs/clib/clib/tcp.hpp"
+#include "../libs/clib/clib/chiper.hpp"
+#include "../libs/clib/clib/rand.hpp"
 #include "EventTrigger.hpp"
 #include "Screenshot.hpp"
 #include "Rectangle.hpp"
@@ -81,7 +83,7 @@ protected:
 
     void recvUpdates(int socket) {
         string msg = server.recv(socket);
-        cout << "socket(" << socket << "): " << msg << endl;
+        // cout << "socket(" << socket << "): " << msg << endl;
         if (msg.empty()) cout << "Client disconnected" << endl;
         vector<string> updates = str_split("\n", msg);
         for (const string& msg: updates) {
@@ -100,22 +102,45 @@ protected:
         }
     }
 
-    // TODO: lib function
-    vector<string> str_split(const string& separator, const string& data) {
-        if (data.empty()) return {};
+    // // TODO: lib function
+    // vector<string> str_split(const string& separator, const string& data) {
+    //     if (data.empty()) return {};
 
-        vector<string> tokens;
-        size_t start = 0, end = 0;
+    //     vector<string> tokens;
+    //     size_t start = 0, end = 0;
 
-        while ((end = data.find(separator, start)) != string::npos) {
-            tokens.push_back(data.substr(start, end - start));
-            start = end + separator.length();
-        }
+    //     while ((end = data.find(separator, start)) != string::npos) {
+    //         tokens.push_back(data.substr(start, end - start));
+    //         start = end + separator.length();
+    //     }
 
-        // Add the last token (or the only token if no separator found)
-        tokens.push_back(data.substr(start));
+    //     // Add the last token (or the only token if no separator found)
+    //     tokens.push_back(data.substr(start));
 
-        return tokens;
+    //     return tokens;
+    // }
+
+    bool onClientConnect(int newSocket) {
+        cout << "Recieve cliid..." << endl;
+        const string cliid = server.recv(newSocket);
+        const string pubkey_fname = "pubkeys/" + cliid + ".pubkey.pem";
+        if (!file_exists(pubkey_fname))
+            return !server.disconnect(newSocket, "Public key not found");
+        
+        // if (now() - file_get_mtime(pubkey_fname) > pubkey_empiry)
+        //     return !server.disconnect(newSocket, "Public key expired");
+
+        string challenge = rands(100);
+        string encrypted = encrypt(challenge, pubkey_fname);
+        cout << "Sending challenge..." << endl;
+        if (!server.send(newSocket, encrypted))
+            return !server.disconnect(newSocket, "Failed to send auth challenge");
+        cout << "Recieving solution..." << endl;
+        if (challenge != server.recv(newSocket)) 
+            return !server.disconnect(newSocket, "Auth challenge failed");
+
+        cout << "Client connected: " << newSocket << endl;
+        return true;
     }
 
     unsigned char* jpeg = nullptr;
@@ -151,7 +176,10 @@ public:
 
             // server polling only to accept new client connections,
             // (main poll in client side)
-            while (server.poll()); // TODO: authenticate clients first
+            int newSocket = 0;
+            while (server.poll(newSocket))
+                if (newSocket)
+                    onClientConnect(newSocket);
 
             if (server.sockets(true).empty()) continue;
 
